@@ -2,7 +2,8 @@
   "version": 2,
   "functions": {
     "api/index.js": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 1024
     }
   },
   "routes": [
@@ -16,6 +17,7 @@
     }
   ],
   "env": {
-    "BASE_URL": "https://otakudesu.blog"
+    "BASE_URL": "https://otakudesu.blog",
+    "NODE_ENV": "production"
   }
 }
