@@ -11,33 +11,53 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0'
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
 ];
 
-let currentUserAgentIndex = 0;
-
 const getRandomUserAgent = () => {
-  const index = Math.floor(Math.random() * USER_AGENTS.length);
-  return USER_AGENTS[index];
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 };
 
-const getNextUserAgent = () => {
-  currentUserAgentIndex = (currentUserAgentIndex + 1) % USER_AGENTS.length;
-  return USER_AGENTS[currentUserAgentIndex];
+const getRandomReferer = () => {
+  const referers = [
+    'https://www.google.com/',
+    'https://www.bing.com/',
+    'https://www.yahoo.com/',
+    'https://duckduckgo.com/',
+    'https://otakudesu.blog/'
+  ];
+  return referers[Math.floor(Math.random() * referers.length)];
 };
 
-const fetchHTML = async (url, retries = 3) => {
+const getRandomAcceptLanguage = () => {
+  const langs = [
+    'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+    'en-US,en;q=0.9,id;q=0.8',
+    'id,en-US;q=0.9,en;q=0.8',
+    'en-GB,en;q=0.9,id;q=0.8'
+  ];
+  return langs[Math.floor(Math.random() * langs.length)];
+};
+
+const fetchHTML = async (url, retries = 5) => {
   let lastError = null;
   
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const userAgent = getRandomUserAgent();
+      const referer = getRandomReferer();
+      const acceptLanguage = getRandomAcceptLanguage();
+      
+      console.log(`[Attempt ${attempt}/${retries}] Fetching: ${url}`);
+      console.log(`[Attempt ${attempt}] User-Agent: ${userAgent.substring(0, 50)}...`);
       
       const response = await axios.get(url, {
         headers: {
           'User-Agent': userAgent,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+          'Accept-Language': acceptLanguage,
           'Accept-Encoding': 'gzip, deflate, br',
           'Connection': 'keep-alive',
           'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
@@ -49,20 +69,26 @@ const fetchHTML = async (url, retries = 3) => {
           'Sec-Fetch-User': '?1',
           'Upgrade-Insecure-Requests': '1',
           'Cache-Control': 'max-age=0',
-          'Referer': 'https://www.google.com/'
+          'Referer': referer,
+          'DNT': '1',
+          'Pragma': 'no-cache'
         },
-        timeout: config.timeout,
+        timeout: config.timeout || 30000,
         maxRedirects: 5,
-        validateStatus: (status) => status < 400 || status === 403
+        validateStatus: (status) => status < 400 || status === 403 || status === 429,
+        // Proxy support (opsional jika ada proxy)
+        // proxy: config.proxy || false
       });
 
-      // Jika status 403, coba lagi dengan User-Agent berbeda
-      if (response.status === 403) {
-        console.log(`[Attempt ${attempt}] Got 403, trying different User-Agent...`);
+      // Jika status 403 atau 429, coba lagi
+      if (response.status === 403 || response.status === 429) {
+        console.log(`[Attempt ${attempt}] Got ${response.status}, retrying...`);
         if (attempt === retries) {
-          throw new Error('Access forbidden (403). The website is blocking the request.');
+          throw new Error(`Access ${response.status === 403 ? 'forbidden' : 'rate limited'} (${response.status}). The website is blocking the request.`);
         }
-        await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Delay increasing
+        const delay = 3000 * attempt + Math.random() * 1000;
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
 
@@ -70,7 +96,7 @@ const fetchHTML = async (url, retries = 3) => {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      console.log(`[Scraper] Success: ${url} (${response.data.length} bytes)`);
+      console.log(`[Attempt ${attempt}] Success! (${response.data.length} bytes)`);
       return cheerio.load(response.data);
       
     } catch (error) {
@@ -78,7 +104,7 @@ const fetchHTML = async (url, retries = 3) => {
       console.log(`[Attempt ${attempt}] Failed: ${error.message}`);
       
       if (attempt < retries) {
-        const delay = 2000 * attempt;
+        const delay = 3000 * attempt + Math.random() * 2000;
         console.log(`Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
