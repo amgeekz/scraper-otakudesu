@@ -1,172 +1,182 @@
 const scraperService = require('../services/scraperService');
+const { validateSlug, validatePage, validateSearchQuery } = require('../utils/validator');
 
 class AnimeController {
-  async getLatestEpisodes(req, res) {
+  // GET /
+  async getServiceInfo(req, res) {
+    res.json({
+      ok: true,
+      data: {
+        name: 'Otakudesu REST API',
+        description: 'Scraping API for Otakudesu.blog',
+        version: '2.0.0',
+        endpoints: [
+          '/health',
+          '/api/latest',
+          '/api/search?q=keyword',
+          '/api/ongoing?page=1',
+          '/api/completed?page=1',
+          '/api/anime-list',
+          '/api/genres',
+          '/api/schedule',
+          '/api/anime/:slug',
+          '/api/episode/:slug',
+          '/api/batch/:slug',
+          '/api/complete-downloads/:slug'
+        ]
+      }
+    });
+  }
+
+  // GET /health
+  async healthCheck(req, res) {
+    res.json({
+      ok: true,
+      data: {
+        status: 'up',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  // GET /api/latest
+  async getLatest(req, res) {
     try {
-      const episodes = await scraperService.getLatestEpisodes();
-      res.json({
-        success: true,
-        data: episodes
-      });
+      const data = await scraperService.getLatest();
+      res.json({ ok: true, data });
     } catch (error) {
-      console.error('Error in getLatestEpisodes:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to fetch latest episodes'
-      });
+      res.status(500).json({ ok: false, error: error.message });
     }
   }
 
-  async getOngoingAnime(req, res) {
+  // GET /api/search
+  async search(req, res) {
+    try {
+      const { q } = req.query;
+      if (!q || !validateSearchQuery(q)) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Invalid search query. Max length: 100 characters'
+        });
+      }
+      const data = await scraperService.search(q);
+      res.json({ ok: true, data, query: q });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  }
+
+  // GET /api/ongoing
+  async getOngoing(req, res) {
     try {
       const page = parseInt(req.query.page) || 1;
-      const data = await scraperService.getOngoingAnime(page);
-      res.json({
-        success: true,
-        data
-      });
+      if (!validatePage(page)) {
+        return res.status(400).json({ ok: false, error: 'Invalid page number' });
+      }
+      const { data, page: currentPage } = await scraperService.getOngoing(page);
+      res.json({ ok: true, data, page: currentPage });
     } catch (error) {
-      console.error('Error in getOngoingAnime:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to fetch ongoing anime'
-      });
+      res.status(500).json({ ok: false, error: error.message });
     }
   }
 
-  async getCompleteAnime(req, res) {
+  // GET /api/completed
+  async getCompleted(req, res) {
     try {
       const page = parseInt(req.query.page) || 1;
-      const data = await scraperService.getCompleteAnime(page);
-      res.json({
-        success: true,
-        data
-      });
-    } catch (error) {
-      console.error('Error in getCompleteAnime:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to fetch complete anime'
-      });
-    }
-  }
-
-  async searchAnime(req, res) {
-    try {
-      const { query } = req.query;
-      if (!query) {
-        return res.status(400).json({
-          success: false,
-          message: 'Query parameter is required'
-        });
+      if (!validatePage(page)) {
+        return res.status(400).json({ ok: false, error: 'Invalid page number' });
       }
-      const results = await scraperService.searchAnime(query);
-      res.json({
-        success: true,
-        data: results
-      });
+      const { data, page: currentPage } = await scraperService.getCompleted(page);
+      res.json({ ok: true, data, page: currentPage });
     } catch (error) {
-      console.error('Error in searchAnime:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to search anime'
-      });
+      res.status(500).json({ ok: false, error: error.message });
     }
   }
 
-  async getAnimeDetail(req, res) {
+  // GET /api/anime-list
+  async getAnimeList(req, res) {
     try {
-      const { url } = req.query;
-      if (!url) {
-        return res.status(400).json({
-          success: false,
-          message: 'URL parameter is required'
-        });
-      }
-      const data = await scraperService.getAnimeDetail(url);
-      res.json({
-        success: true,
-        data
-      });
+      const data = await scraperService.getAnimeList();
+      res.json({ ok: true, data });
     } catch (error) {
-      console.error('Error in getAnimeDetail:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to fetch anime details'
-      });
+      res.status(500).json({ ok: false, error: error.message });
     }
   }
 
-  async getEpisodeDetail(req, res) {
-    try {
-      const { url } = req.query;
-      if (!url) {
-        return res.status(400).json({
-          success: false,
-          message: 'URL parameter is required'
-        });
-      }
-      const data = await scraperService.getEpisodeDetail(url);
-      res.json({
-        success: true,
-        data
-      });
-    } catch (error) {
-      console.error('Error in getEpisodeDetail:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to fetch episode details'
-      });
-    }
-  }
-
+  // GET /api/genres
   async getGenres(req, res) {
     try {
-      const genres = await scraperService.getGenres();
-      res.json({
-        success: true,
-        data: genres
-      });
+      const data = await scraperService.getGenres();
+      res.json({ ok: true, data });
     } catch (error) {
-      console.error('Error in getGenres:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to fetch genres'
-      });
+      res.status(500).json({ ok: false, error: error.message });
     }
   }
 
-  async getAnimeByGenre(req, res) {
-    try {
-      const { genre } = req.params;
-      const page = parseInt(req.query.page) || 1;
-      const data = await scraperService.getAnimeByGenre(genre, page);
-      res.json({
-        success: true,
-        data
-      });
-    } catch (error) {
-      console.error('Error in getAnimeByGenre:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to fetch anime by genre'
-      });
-    }
-  }
-
+  // GET /api/schedule
   async getSchedule(req, res) {
     try {
-      const schedule = await scraperService.getSchedule();
-      res.json({
-        success: true,
-        data: schedule
-      });
+      const data = await scraperService.getSchedule();
+      res.json({ ok: true, data });
     } catch (error) {
-      console.error('Error in getSchedule:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to fetch schedule'
-      });
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  }
+
+  // GET /api/anime/:slug
+  async getAnimeDetail(req, res) {
+    try {
+      const { slug } = req.params;
+      if (!validateSlug(slug)) {
+        return res.status(400).json({ ok: false, error: 'Invalid slug' });
+      }
+      const data = await scraperService.getAnimeDetail(slug);
+      res.json({ ok: true, data });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  }
+
+  // GET /api/episode/:slug
+  async getEpisodeDetail(req, res) {
+    try {
+      const { slug } = req.params;
+      if (!validateSlug(slug)) {
+        return res.status(400).json({ ok: false, error: 'Invalid slug' });
+      }
+      const data = await scraperService.getEpisodeDetail(slug);
+      res.json({ ok: true, data });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  }
+
+  // GET /api/batch/:slug
+  async getBatchDetail(req, res) {
+    try {
+      const { slug } = req.params;
+      if (!validateSlug(slug)) {
+        return res.status(400).json({ ok: false, error: 'Invalid slug' });
+      }
+      const data = await scraperService.getBatchDetail(slug);
+      res.json({ ok: true, data });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  }
+
+  // GET /api/complete-downloads/:slug
+  async getCompleteDownloads(req, res) {
+    try {
+      const { slug } = req.params;
+      if (!validateSlug(slug)) {
+        return res.status(400).json({ ok: false, error: 'Invalid slug' });
+      }
+      const data = await scraperService.getCompleteDownloads(slug);
+      res.json({ ok: true, data });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
     }
   }
 }
