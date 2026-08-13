@@ -6,7 +6,6 @@ const swaggerUi = require('swagger-ui-express');
 const path = require('path');
 require('dotenv').config();
 
-// Import dengan path absolut dari root
 const animeRoutes = require('../src/routes/animeRoutes');
 const swaggerSpec = require('../src/docs/swagger');
 
@@ -27,14 +26,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files
+// Static files - langsung dari folder public
 app.use(express.static(path.join(__dirname, '../public')));
-
-// Logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
 
 // Routes
 app.use('/api/anime', animeRoutes);
@@ -51,12 +44,11 @@ app.get('/health', (req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    nodeVersion: process.version
+    memory: process.memoryUsage()
   });
 });
 
-// Root
+// Root - serve index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
@@ -73,14 +65,10 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
-  console.error('Stack:', err.stack);
-  
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message: err.message || 'Internal server error'
   });
 });
 
-// Export untuk Vercel
 module.exports = app;
