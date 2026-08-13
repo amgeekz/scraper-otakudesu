@@ -6,7 +6,7 @@ const swaggerUi = require('swagger-ui-express');
 const path = require('path');
 require('dotenv').config();
 
-// Import dengan path yang benar
+// Import dengan path absolut dari root
 const animeRoutes = require('../src/routes/animeRoutes');
 const swaggerSpec = require('../src/docs/swagger');
 
@@ -30,11 +30,14 @@ app.use(express.urlencoded({ extended: true }));
 // Static files
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Routes - dengan error handling
-app.use('/api/anime', (req, res, next) => {
+// Logging middleware
+app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
-}, animeRoutes);
+});
+
+// Routes
+app.use('/api/anime', animeRoutes);
 
 // Swagger docs
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -48,7 +51,8 @@ app.get('/health', (req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    memory: process.memoryUsage()
+    memory: process.memoryUsage(),
+    nodeVersion: process.version
   });
 });
 
@@ -57,7 +61,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// 404
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
