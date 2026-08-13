@@ -21,4 +21,7 @@ router.get('/api/episode/:slug', controller.getEpisodeDetail.bind(controller));
 router.get('/api/batch/:slug', controller.getBatchDetail.bind(controller));
 router.get('/api/complete-downloads/:slug', controller.getCompleteDownloads.bind(controller));
 
+// Advanced endpoints
+router.get('/api/ongoing-by-day/:day', controller.getOngoingByDay.bind(controller));
+
 module.exports = router;
