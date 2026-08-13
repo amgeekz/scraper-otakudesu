@@ -7,16 +7,21 @@ class ScraperService {
     this.baseUrl = config.baseUrl;
   }
 
-  // Helper untuk handle error
+  // ========================================
+  // HELPER
+  // ========================================
   handleError(error, context) {
     console.error(`[Scraper Error] ${context}:`, error.message);
-    if (error.message.includes('403')) {
-      throw new Error('Website is blocking the request. Please try again later or use a VPN.');
-    }
-    throw error;
+    return {
+      error: true,
+      message: error.message || `Failed to fetch ${context}`,
+      code: error.code || 'SCRAPE_ERROR'
+    };
   }
 
-  // === HOME / LATEST ===
+  // ========================================
+  // HOME / LATEST
+  // ========================================
   async getLatest() {
     const cacheKey = 'latest';
     if (cache.has(cacheKey)) {
@@ -28,12 +33,12 @@ class ScraperService {
       const ongoingAnime = [];
       const completeAnime = [];
 
-      // Coba berbagai selector
       const selectors = [
         '.venz .col-md-3',
         '.listanime .col-md-3',
         '.anime-list .item',
-        '.col-md-3 .thumb'
+        '.col-md-3 .thumb',
+        '.anime-item'
       ];
 
       for (const selector of selectors) {
@@ -59,8 +64,7 @@ class ScraperService {
                 genres: cleanText(genre).split(',').map(g => g.trim()).filter(Boolean)
               };
 
-              // Cek ongoing atau complete
-              if (episode && (episode.includes('Episode') || episode.includes('Eps'))) {
+              if (episode && (episode.includes('Episode') || episode.includes('Eps') || episode.includes('eps'))) {
                 ongoingAnime.push(anime);
               } else {
                 completeAnime.push(anime);
@@ -78,11 +82,13 @@ class ScraperService {
       cache.set(cacheKey, result);
       return result;
     } catch (error) {
-      this.handleError(error, 'getLatest');
+      return this.handleError(error, 'getLatest');
     }
   }
 
-  // === SEARCH ===
+  // ========================================
+  // SEARCH
+  // ========================================
   async search(query) {
     const cacheKey = `search:${query}`;
     if (cache.has(cacheKey)) {
@@ -98,7 +104,8 @@ class ScraperService {
         '.chivsrc li',
         '.search-results .item',
         '.result-item',
-        '.list-item'
+        '.list-item',
+        '.anime-item'
       ];
 
       for (const selector of selectors) {
@@ -131,11 +138,13 @@ class ScraperService {
       cache.set(cacheKey, results);
       return results;
     } catch (error) {
-      this.handleError(error, 'search');
+      return this.handleError(error, 'search');
     }
   }
 
-  // === ONGOING ANIME ===
+  // ========================================
+  // ONGOING ANIME
+  // ========================================
   async getOngoing(page = 1) {
     const cacheKey = `ongoing:${page}`;
     if (cache.has(cacheKey)) {
@@ -154,7 +163,8 @@ class ScraperService {
         '.venz .col-md-3',
         '.listanime .col-md-3',
         '.anime-list .item',
-        '.col-md-3 .thumb'
+        '.col-md-3 .thumb',
+        '.anime-item'
       ];
 
       for (const selector of selectors) {
@@ -189,11 +199,13 @@ class ScraperService {
       cache.set(cacheKey, result);
       return result;
     } catch (error) {
-      this.handleError(error, 'getOngoing');
+      return this.handleError(error, 'getOngoing');
     }
   }
 
-  // === COMPLETED ANIME ===
+  // ========================================
+  // COMPLETED ANIME
+  // ========================================
   async getCompleted(page = 1) {
     const cacheKey = `completed:${page}`;
     if (cache.has(cacheKey)) {
@@ -212,7 +224,8 @@ class ScraperService {
         '.venz .col-md-3',
         '.listanime .col-md-3',
         '.anime-list .item',
-        '.col-md-3 .thumb'
+        '.col-md-3 .thumb',
+        '.anime-item'
       ];
 
       for (const selector of selectors) {
@@ -247,11 +260,13 @@ class ScraperService {
       cache.set(cacheKey, result);
       return result;
     } catch (error) {
-      this.handleError(error, 'getCompleted');
+      return this.handleError(error, 'getCompleted');
     }
   }
 
-  // === ANIME LIST ===
+  // ========================================
+  // ANIME LIST
+  // ========================================
   async getAnimeList() {
     const cacheKey = 'anime-list';
     if (cache.has(cacheKey)) {
@@ -267,7 +282,8 @@ class ScraperService {
         '.anime-list a',
         '.list-anime a',
         '.daftar-anime a',
-        '.list a'
+        '.list a',
+        '.anime-link a'
       ];
 
       for (const selector of selectors) {
@@ -276,7 +292,7 @@ class ScraperService {
           elements.each((i, el) => {
             const title = $(el).text();
             const link = $(el).attr('href');
-            if (title && link && !link.includes('#')) {
+            if (title && link && !link.includes('#') && !link.includes('javascript')) {
               animeList.push({
                 title: cleanText(title),
                 slug: extractSlug(link),
@@ -291,11 +307,13 @@ class ScraperService {
       cache.set(cacheKey, animeList);
       return animeList;
     } catch (error) {
-      this.handleError(error, 'getAnimeList');
+      return this.handleError(error, 'getAnimeList');
     }
   }
 
-  // === GENRES ===
+  // ========================================
+  // GENRES
+  // ========================================
   async getGenres() {
     const cacheKey = 'genres';
     if (cache.has(cacheKey)) {
@@ -311,7 +329,8 @@ class ScraperService {
         '.genre-list a',
         '.genres a',
         '.list-genre a',
-        '.genre-item a'
+        '.genre-item a',
+        '.tag-item a'
       ];
 
       for (const selector of selectors) {
@@ -335,11 +354,13 @@ class ScraperService {
       cache.set(cacheKey, genres);
       return genres;
     } catch (error) {
-      this.handleError(error, 'getGenres');
+      return this.handleError(error, 'getGenres');
     }
   }
 
-  // === SCHEDULE ===
+  // ========================================
+  // SCHEDULE
+  // ========================================
   async getSchedule() {
     const cacheKey = 'schedule';
     if (cache.has(cacheKey)) {
@@ -355,7 +376,8 @@ class ScraperService {
         '.jadwal',
         '.schedule-day',
         '.release-schedule',
-        '.day-schedule'
+        '.day-schedule',
+        '.schedule-item'
       ];
 
       for (const selector of selectors) {
@@ -394,11 +416,13 @@ class ScraperService {
       cache.set(cacheKey, schedule);
       return schedule;
     } catch (error) {
-      this.handleError(error, 'getSchedule');
+      return this.handleError(error, 'getSchedule');
     }
   }
 
-  // === ANIME DETAIL ===
+  // ========================================
+  // ANIME DETAIL
+  // ========================================
   async getAnimeDetail(slug) {
     const cacheKey = `anime:${slug}`;
     if (cache.has(cacheKey)) {
@@ -418,7 +442,8 @@ class ScraperService {
         '.infoanime .info',
         '.anime-info .info',
         '.info-detail',
-        '.anime-detail'
+        '.anime-detail',
+        '.info-item'
       ];
 
       for (const selector of infoSelectors) {
@@ -455,7 +480,8 @@ class ScraperService {
         '.episodelist ul li',
         '.episode-list .item',
         '.list-episode li',
-        '.episode-item'
+        '.episode-item',
+        '.episode-link'
       ];
 
       for (const selector of episodeSelectors) {
@@ -485,7 +511,7 @@ class ScraperService {
       let batch = null;
       let completeDownload = null;
 
-      $('.batch-link a, .download-batch a, .batch a').each((i, el) => {
+      $('.batch-link a, .download-batch a, .batch a, .download-link a').each((i, el) => {
         const batchTitle = $(el).text();
         const batchLink = $(el).attr('href');
         if (batchTitle && batchLink) {
@@ -496,7 +522,7 @@ class ScraperService {
               slug: batchSlug,
               url: normalizeUrl(batchLink, this.baseUrl)
             };
-          } else if (batchSlug && (batchSlug.includes('lengkap') || batchTitle.toLowerCase().includes('lengkap'))) {
+          } else if (batchSlug && (batchSlug.includes('lengkap') || batchTitle.toLowerCase().includes('lengkap') || batchTitle.toLowerCase().includes('complete'))) {
             completeDownload = {
               title: cleanText(batchTitle),
               slug: batchSlug,
@@ -512,13 +538,13 @@ class ScraperService {
         url: normalizeUrl(url, this.baseUrl),
         image_url: image ? normalizeUrl(image, this.baseUrl) : null,
         japanese: info['japanese'] || null,
-        score: info['skor'] || info['score'] || null,
+        score: info['skor'] || info['score'] || info['rating'] || null,
         producer: info['produser'] || info['producer'] || null,
         type: info['tipe'] || info['type'] || null,
         status: info['status'] || null,
-        total_episodes: info['total episode'] || info['episode'] || null,
+        total_episodes: info['total episode'] || info['episode'] || info['episodes'] || null,
         duration: info['durasi'] || info['duration'] || null,
-        release_date: info['rilis'] || info['release'] || null,
+        release_date: info['rilis'] || info['release'] || info['tanggal rilis'] || null,
         studio: info['studio'] || null,
         genres,
         synopsis: cleanText(synopsis) || 'No synopsis available',
@@ -530,11 +556,13 @@ class ScraperService {
       cache.set(cacheKey, result);
       return result;
     } catch (error) {
-      this.handleError(error, `getAnimeDetail: ${slug}`);
+      return this.handleError(error, `getAnimeDetail: ${slug}`);
     }
   }
 
-  // === EPISODE DETAIL ===
+  // ========================================
+  // EPISODE DETAIL
+  // ========================================
   async getEpisodeDetail(slug) {
     const cacheKey = `episode:${slug}`;
     if (cache.has(cacheKey)) {
@@ -553,18 +581,29 @@ class ScraperService {
       let streamUrl = null;
       $('iframe').each((i, el) => {
         const src = $(el).attr('src');
-        if (src && !src.includes('google') && !src.includes('facebook') && !src.includes('youtube')) {
+        if (src && !src.includes('google') && !src.includes('facebook') && !src.includes('youtube') && !src.includes('gstatic')) {
           streamUrl = src;
           return false;
         }
       });
 
+      // Jika tidak ada iframe, coba cari di link streaming
+      if (!streamUrl) {
+        $('.stream-link a, .player-link a, .stream a').each((i, el) => {
+          const href = $(el).attr('href');
+          if (href && (href.includes('http') || href.includes('www'))) {
+            streamUrl = href;
+            return false;
+          }
+        });
+      }
+
       // Mirrors
       const mirrors = [];
-      $('.mirror-link, .stream-mirror, .mirror-item, .mirrors').each((i, el) => {
-        const quality = $(el).find('.quality, .label, .title').text();
+      $('.mirror-link, .stream-mirror, .mirror-item, .mirrors, .mirror').each((i, el) => {
+        const quality = $(el).find('.quality, .label, .title, .mirror-quality').text();
         const providers = [];
-        $(el).find('a, .provider, .btn').each((j, provider) => {
+        $(el).find('a, .provider, .btn, .mirror-provider').each((j, provider) => {
           const name = $(provider).text();
           const link = $(provider).attr('href');
           const dataContent = $(provider).attr('data-content') || $(provider).attr('data-link') || null;
@@ -572,7 +611,7 @@ class ScraperService {
             providers.push({
               name: cleanText(name),
               data_content: dataContent,
-              is_default: link.includes('default') || false
+              is_default: link.includes('default') || name.includes('Default') || false
             });
           }
         });
@@ -590,17 +629,19 @@ class ScraperService {
         '.download-link .download',
         '.download-list .item',
         '.dl-list .item',
-        '.download-item'
+        '.download-item',
+        '.download',
+        '.dl-item'
       ];
 
       for (const selector of downloadSelectors) {
         const elements = $(selector);
         if (elements.length > 0) {
           elements.each((i, el) => {
-            const quality = $(el).find('.quality, .label, .title').text();
-            const size = $(el).find('.size, .filesize, .size').text();
+            const quality = $(el).find('.quality, .label, .title, .dl-quality').text();
+            const size = $(el).find('.size, .filesize, .size, .dl-size').text();
             const links = [];
-            $(el).find('a, .provider, .btn').each((j, link) => {
+            $(el).find('a, .provider, .btn, .dl-link').each((j, link) => {
               const provider = $(link).text();
               const urlLink = $(link).attr('href');
               if (provider && urlLink) {
@@ -622,12 +663,12 @@ class ScraperService {
         }
       }
 
-      // Episode selector
+      // Episode selector (previous, next, all)
       const episodeSelector = [];
-      $('.episode-selector a, .episode-nav a, .nav-links a, .pagination a').each((i, el) => {
+      $('.episode-selector a, .episode-nav a, .nav-links a, .pagination a, .episode-navigation a').each((i, el) => {
         const epTitle = $(el).text();
         const epLink = $(el).attr('href');
-        if (epLink && epLink !== '#') {
+        if (epLink && epLink !== '#' && !epLink.includes('javascript')) {
           episodeSelector.push({
             title: cleanText(epTitle),
             slug: extractSlug(epLink),
@@ -639,18 +680,21 @@ class ScraperService {
       const previousEpisode = episodeSelector.find(e => 
         e.title.toLowerCase().includes('previous') || 
         e.title.toLowerCase().includes('prev') || 
-        e.title.includes('«')
+        e.title.includes('«') ||
+        e.title.includes('‹')
       ) || null;
       
       const nextEpisode = episodeSelector.find(e => 
         e.title.toLowerCase().includes('next') || 
-        e.title.includes('»')
+        e.title.includes('»') ||
+        e.title.includes('›')
       ) || null;
       
       const allEpisodes = episodeSelector.find(e => 
         e.title.toLowerCase().includes('all') || 
         e.title.toLowerCase().includes('semua') ||
-        e.title.includes('All')
+        e.title.includes('All') ||
+        e.title.includes('all')
       ) || null;
 
       const episodeNum = extractNumber(title);
@@ -677,11 +721,13 @@ class ScraperService {
       cache.set(cacheKey, result);
       return result;
     } catch (error) {
-      this.handleError(error, `getEpisodeDetail: ${slug}`);
+      return this.handleError(error, `getEpisodeDetail: ${slug}`);
     }
   }
 
-  // === BATCH DETAIL ===
+  // ========================================
+  // BATCH DETAIL
+  // ========================================
   async getBatchDetail(slug) {
     const cacheKey = `batch:${slug}`;
     if (cache.has(cacheKey)) {
@@ -700,7 +746,8 @@ class ScraperService {
         '.infoanime .info',
         '.anime-info .info',
         '.info-detail',
-        '.anime-detail'
+        '.anime-detail',
+        '.info-item'
       ];
 
       for (const selector of infoSelectors) {
@@ -726,17 +773,19 @@ class ScraperService {
         '.download-link .download',
         '.download-list .item',
         '.dl-list .item',
-        '.download-item'
+        '.download-item',
+        '.download',
+        '.dl-item'
       ];
 
       for (const selector of downloadSelectors) {
         const elements = $(selector);
         if (elements.length > 0) {
           elements.each((i, el) => {
-            const quality = $(el).find('.quality, .label, .title').text();
-            const size = $(el).find('.size, .filesize, .size').text();
+            const quality = $(el).find('.quality, .label, .title, .dl-quality').text();
+            const size = $(el).find('.size, .filesize, .size, .dl-size').text();
             const links = [];
-            $(el).find('a, .provider, .btn').each((j, link) => {
+            $(el).find('a, .provider, .btn, .dl-link').each((j, link) => {
               const provider = $(link).text();
               const urlLink = $(link).attr('href');
               if (provider && urlLink) {
@@ -775,11 +824,13 @@ class ScraperService {
       cache.set(cacheKey, result);
       return result;
     } catch (error) {
-      this.handleError(error, `getBatchDetail: ${slug}`);
+      return this.handleError(error, `getBatchDetail: ${slug}`);
     }
   }
 
-  // === COMPLETE DOWNLOADS ===
+  // ========================================
+  // COMPLETE DOWNLOADS
+  // ========================================
   async getCompleteDownloads(slug) {
     const cacheKey = `complete:${slug}`;
     if (cache.has(cacheKey)) {
@@ -797,7 +848,8 @@ class ScraperService {
         '.infoanime .info',
         '.anime-info .info',
         '.info-detail',
-        '.anime-detail'
+        '.anime-detail',
+        '.info-item'
       ];
 
       for (const selector of infoSelectors) {
@@ -823,7 +875,8 @@ class ScraperService {
         '.episode-item',
         '.list-episode .item',
         '.episode-list .item',
-        '.episode'
+        '.episode',
+        '.episode-download'
       ];
 
       for (const selector of episodeSelectors) {
@@ -832,14 +885,14 @@ class ScraperService {
           elements.each((i, el) => {
             const epTitle = $(el).find('.title, .episode-title, .name').text() || $(el).text();
             const epNum = extractNumber(epTitle);
-            const isFinal = epTitle.toLowerCase().includes('end') || false;
+            const isFinal = epTitle.toLowerCase().includes('end') || epTitle.toLowerCase().includes('final') || false;
             
             const downloads = [];
-            $(el).find('.download-link .download, .download-list .item, .dl-list .item, .download-item').each((j, dl) => {
-              const quality = $(dl).find('.quality, .label, .title').text();
-              const size = $(dl).find('.size, .filesize, .size').text();
+            $(el).find('.download-link .download, .download-list .item, .dl-list .item, .download-item, .download, .dl-item').each((j, dl) => {
+              const quality = $(dl).find('.quality, .label, .title, .dl-quality').text();
+              const size = $(dl).find('.size, .filesize, .size, .dl-size').text();
               const links = [];
-              $(dl).find('a, .provider, .btn').each((k, link) => {
+              $(dl).find('a, .provider, .btn, .dl-link').each((k, link) => {
                 const provider = $(link).text();
                 const urlLink = $(link).attr('href');
                 if (provider && urlLink) {
@@ -873,11 +926,11 @@ class ScraperService {
 
       // Batch downloads
       const batchDownloads = [];
-      $('.batch-download .download, .batch-list .item, .batch-item').each((i, el) => {
-        const quality = $(el).find('.quality, .label, .title').text();
-        const size = $(el).find('.size, .filesize, .size').text();
+      $('.batch-download .download, .batch-list .item, .batch-item, .batch .download').each((i, el) => {
+        const quality = $(el).find('.quality, .label, .title, .dl-quality').text();
+        const size = $(el).find('.size, .filesize, .size, .dl-size').text();
         const links = [];
-        $(el).find('a, .provider, .btn').each((j, link) => {
+        $(el).find('a, .provider, .btn, .dl-link').each((j, link) => {
           const provider = $(link).text();
           const urlLink = $(link).attr('href');
           if (provider && urlLink) {
@@ -913,7 +966,7 @@ class ScraperService {
       cache.set(cacheKey, result);
       return result;
     } catch (error) {
-      this.handleError(error, `getCompleteDownloads: ${slug}`);
+      return this.handleError(error, `getCompleteDownloads: ${slug}`);
     }
   }
 }
