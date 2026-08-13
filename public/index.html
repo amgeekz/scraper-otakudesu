@@ -23,12 +23,16 @@
             </div>
             <h1>Otakudesu REST API</h1>
             <p class="subtitle">
-                <span class="badge"><i class="fas fa-code"></i> v1.0.0</span>
+                <span class="badge"><i class="fas fa-code"></i> v2.0.0</span>
                 <span class="badge badge-secondary"><i class="fas fa-database"></i> Scraping API</span>
             </p>
             <div class="status">
                 <span class="status-dot"></span>
                 <span>API is operational</span>
+                <span class="status-ip" id="status-ip">
+                    <i class="fas fa-network-wired"></i>
+                    <span id="client-ip">Loading IP...</span>
+                </span>
             </div>
         </header>
 
@@ -58,6 +62,34 @@
                 <i class="fas fa-calendar-alt icon"></i>
                 <h3>Schedule</h3>
             </div>
+            <div class="feature">
+                <i class="fas fa-download icon"></i>
+                <h3>Batch Download</h3>
+            </div>
+            <div class="feature">
+                <i class="fas fa-boxes icon"></i>
+                <h3>Complete Downloads</h3>
+            </div>
+        </section>
+
+        <!-- Stats -->
+        <section class="stats">
+            <div class="stat-item">
+                <i class="fas fa-route"></i>
+                <span><strong>12</strong> Endpoints</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-shield-alt"></i>
+                <span><strong>60</strong> req/min</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-database"></i>
+                <span><strong>500</strong> cache entries</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-clock"></i>
+                <span><strong>5</strong> min TTL</span>
+            </div>
         </section>
 
         <!-- Test API Section -->
@@ -71,22 +103,24 @@
                 <div class="test-input-group">
                     <label for="endpoint-select"><i class="fas fa-link"></i> Endpoint</label>
                     <select id="endpoint-select">
-                        <option value="/api/anime/latest">GET /api/anime/latest</option>
-                        <option value="/api/anime/ongoing">GET /api/anime/ongoing</option>
-                        <option value="/api/anime/complete">GET /api/anime/complete</option>
-                        <option value="/api/anime/genres">GET /api/anime/genres</option>
-                        <option value="/api/anime/schedule">GET /api/anime/schedule</option>
+                        <option value="/api/latest">GET /api/latest</option>
+                        <option value="/api/ongoing">GET /api/ongoing</option>
+                        <option value="/api/completed">GET /api/completed</option>
+                        <option value="/api/genres">GET /api/genres</option>
+                        <option value="/api/schedule">GET /api/schedule</option>
+                        <option value="/api/anime-list">GET /api/anime-list</option>
+                        <option value="/api/search">GET /api/search</option>
                     </select>
                 </div>
 
                 <div class="test-input-group" id="query-group" style="display:none;">
-                    <label for="query-input"><i class="fas fa-search"></i> Query</label>
+                    <label for="query-input"><i class="fas fa-search"></i> Query (q)</label>
                     <input type="text" id="query-input" placeholder="e.g. naruto">
                 </div>
 
-                <div class="test-input-group" id="url-group" style="display:none;">
-                    <label for="url-input"><i class="fas fa-link"></i> URL</label>
-                    <input type="text" id="url-input" placeholder="https://otakudesu.blog/anime/naruto">
+                <div class="test-input-group" id="slug-group" style="display:none;">
+                    <label for="slug-input"><i class="fas fa-hashtag"></i> Slug</label>
+                    <input type="text" id="slug-input" placeholder="e.g. naruto-shippuden">
                 </div>
 
                 <button id="test-btn" class="btn btn-primary">
@@ -105,6 +139,7 @@
                         <span class="result-status" id="result-status">
                             <i class="fas fa-circle"></i> Ready
                         </span>
+                        <span class="result-time" id="result-time"></span>
                         <button id="copy-result-btn" class="copy-btn" title="Copy">
                             <i class="fas fa-copy"></i>
                         </button>
@@ -127,120 +162,179 @@
             </div>
 
             <div class="endpoints">
-                <div class="endpoint">
-                    <div class="endpoint-left">
-                        <span class="method method-get">GET</span>
-                        <span class="path">/api/anime/latest</span>
+                <!-- Service & Health -->
+                <div class="endpoint-group">
+                    <div class="group-title"><i class="fas fa-heartbeat"></i> Service</div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Service info</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="endpoint-right">
-                        <span class="desc">Latest episodes</span>
-                        <button class="copy-btn" onclick="copyToClipboard('/api/anime/latest')" title="Copy">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="endpoint">
-                    <div class="endpoint-left">
-                        <span class="method method-get">GET</span>
-                        <span class="path">/api/anime/ongoing</span>
-                    </div>
-                    <div class="endpoint-right">
-                        <span class="desc">Ongoing anime</span>
-                        <button class="copy-btn" onclick="copyToClipboard('/api/anime/ongoing')" title="Copy">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="endpoint">
-                    <div class="endpoint-left">
-                        <span class="method method-get">GET</span>
-                        <span class="path">/api/anime/complete</span>
-                    </div>
-                    <div class="endpoint-right">
-                        <span class="desc">Complete anime</span>
-                        <button class="copy-btn" onclick="copyToClipboard('/api/anime/complete')" title="Copy">
-                            <i class="fas fa-copy"></i>
-                        </button>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/health</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Health check</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/health')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="endpoint">
-                    <div class="endpoint-left">
-                        <span class="method method-get">GET</span>
-                        <span class="path">/api/anime/search?query=</span>
+                <!-- Main Endpoints -->
+                <div class="endpoint-group">
+                    <div class="group-title"><i class="fas fa-database"></i> Main</div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/latest</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Latest anime</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/latest')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="endpoint-right">
-                        <span class="desc">Search anime</span>
-                        <button class="copy-btn" onclick="copyToClipboard('/api/anime/search?query=naruto')" title="Copy">
-                            <i class="fas fa-copy"></i>
-                        </button>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/ongoing?page=1</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Ongoing anime</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/ongoing?page=1')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                     </div>
-                </div>
-
-                <div class="endpoint">
-                    <div class="endpoint-left">
-                        <span class="method method-get">GET</span>
-                        <span class="path">/api/anime/genres</span>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/completed?page=1</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Completed anime</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/completed?page=1')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="endpoint-right">
-                        <span class="desc">All genres</span>
-                        <button class="copy-btn" onclick="copyToClipboard('/api/anime/genres')" title="Copy">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="endpoint">
-                    <div class="endpoint-left">
-                        <span class="method method-get">GET</span>
-                        <span class="path">/api/anime/genre/:genre</span>
-                    </div>
-                    <div class="endpoint-right">
-                        <span class="desc">Anime by genre</span>
-                        <button class="copy-btn" onclick="copyToClipboard('/api/anime/genre/action')" title="Copy">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="endpoint">
-                    <div class="endpoint-left">
-                        <span class="method method-get">GET</span>
-                        <span class="path">/api/anime/schedule</span>
-                    </div>
-                    <div class="endpoint-right">
-                        <span class="desc">Release schedule</span>
-                        <button class="copy-btn" onclick="copyToClipboard('/api/anime/schedule')" title="Copy">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="endpoint">
-                    <div class="endpoint-left">
-                        <span class="method method-get">GET</span>
-                        <span class="path">/api/anime/anime/detail?url=</span>
-                    </div>
-                    <div class="endpoint-right">
-                        <span class="desc">Anime details</span>
-                        <button class="copy-btn" onclick="copyToClipboard('/api/anime/anime/detail?url=https://otakudesu.blog/anime/naruto')" title="Copy">
-                            <i class="fas fa-copy"></i>
-                        </button>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/search?q=keyword</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Search anime</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/search?q=naruto')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="endpoint">
-                    <div class="endpoint-left">
-                        <span class="method method-get">GET</span>
-                        <span class="path">/api/anime/episode/detail?url=</span>
+                <!-- Detail Endpoints -->
+                <div class="endpoint-group">
+                    <div class="group-title"><i class="fas fa-info-circle"></i> Detail</div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/anime/:slug</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Anime detail</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/anime/naruto-shippuden')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="endpoint-right">
-                        <span class="desc">Episode details</span>
-                        <button class="copy-btn" onclick="copyToClipboard('/api/anime/episode/detail?url=https://otakudesu.blog/episode/naruto-1')" title="Copy">
-                            <i class="fas fa-copy"></i>
-                        </button>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/episode/:slug</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Episode detail</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/episode/naruto-shippuden-episode-1')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/batch/:slug</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Batch download</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/batch/naruto-batch')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/complete-downloads/:slug</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Complete downloads</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/complete-downloads/naruto')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- List Endpoints -->
+                <div class="endpoint-group">
+                    <div class="group-title"><i class="fas fa-list"></i> List</div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/anime-list</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">All anime</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/anime-list')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/genres</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">All genres</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/genres')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <span class="method method-get">GET</span>
+                            <span class="path">/api/schedule</span>
+                        </div>
+                        <div class="endpoint-right">
+                            <span class="desc">Release schedule</span>
+                            <button class="copy-btn" onclick="copyToClipboard('/api/schedule')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -248,7 +342,7 @@
 
         <!-- Buttons -->
         <div class="buttons">
-            <a href="/docs" class="btn btn-primary">
+            <a href="/docs" class="btn btn-primary" target="_blank">
                 <i class="fas fa-book-open"></i>
                 API Documentation
             </a>
@@ -270,8 +364,9 @@
             Data from <a href="https://otakudesu.blog" target="_blank">Otakudesu.blog</a>
             <br>
             <span style="font-size: 12px; color: #d1d5db;">
-                <i class="fas fa-shield-alt"></i> Rate limited &bull;
-                <i class="fas fa-globe"></i> CORS enabled
+                <i class="fas fa-shield-alt"></i> Rate limited: 60 req/min &bull;
+                <i class="fas fa-globe"></i> CORS enabled &bull;
+                <i class="fas fa-server"></i> Trust proxy: enabled
             </span>
         </footer>
     </div>

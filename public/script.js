@@ -5,34 +5,54 @@ const API_BASE = '';
 const endpointSelect = document.getElementById('endpoint-select');
 const queryGroup = document.getElementById('query-group');
 const queryInput = document.getElementById('query-input');
-const urlGroup = document.getElementById('url-group');
-const urlInput = document.getElementById('url-input');
+const slugGroup = document.getElementById('slug-group');
+const slugInput = document.getElementById('slug-input');
 const testBtn = document.getElementById('test-btn');
 const clearBtn = document.getElementById('clear-btn');
 const resultBody = document.getElementById('result-body');
 const resultStatus = document.getElementById('result-status');
+const resultTime = document.getElementById('result-time');
 const copyResultBtn = document.getElementById('copy-result-btn');
+const clientIp = document.getElementById('client-ip');
 
 // Endpoint configs
 const endpointConfigs = {
-    '/api/anime/latest': { hasQuery: false, hasUrl: false },
-    '/api/anime/ongoing': { hasQuery: false, hasUrl: false },
-    '/api/anime/complete': { hasQuery: false, hasUrl: false },
-    '/api/anime/genres': { hasQuery: false, hasUrl: false },
-    '/api/anime/schedule': { hasQuery: false, hasUrl: false },
-    '/api/anime/search': { hasQuery: true, hasUrl: false },
-    '/api/anime/anime/detail': { hasQuery: false, hasUrl: true },
-    '/api/anime/episode/detail': { hasQuery: false, hasUrl: true },
-    '/api/anime/genre': { hasQuery: false, hasUrl: false },
+    '/api/latest': { hasQuery: false, hasSlug: false },
+    '/api/ongoing': { hasQuery: false, hasSlug: false },
+    '/api/completed': { hasQuery: false, hasSlug: false },
+    '/api/genres': { hasQuery: false, hasSlug: false },
+    '/api/schedule': { hasQuery: false, hasSlug: false },
+    '/api/anime-list': { hasQuery: false, hasSlug: false },
+    '/api/search': { hasQuery: true, hasSlug: false },
+    '/api/anime': { hasQuery: false, hasSlug: true },
+    '/api/episode': { hasQuery: false, hasSlug: true },
+    '/api/batch': { hasQuery: false, hasSlug: true },
+    '/api/complete-downloads': { hasQuery: false, hasSlug: true },
 };
+
+// Get client IP
+async function getClientIP() {
+    try {
+        const response = await fetch('/health');
+        const data = await response.json();
+        if (data.ok && data.data) {
+            clientIp.textContent = 'Connected';
+        } else {
+            clientIp.textContent = 'API Ready';
+        }
+    } catch {
+        clientIp.textContent = 'API Ready';
+    }
+}
+getClientIP();
 
 // Update input visibility based on endpoint
 endpointSelect.addEventListener('change', function() {
     const value = this.value;
-    const config = endpointConfigs[value] || { hasQuery: false, hasUrl: false };
+    const config = endpointConfigs[value] || { hasQuery: false, hasSlug: false };
     
     queryGroup.style.display = config.hasQuery ? 'flex' : 'none';
-    urlGroup.style.display = config.hasUrl ? 'flex' : 'none';
+    slugGroup.style.display = config.hasSlug ? 'flex' : 'none';
 });
 
 // Test API
@@ -41,23 +61,23 @@ testBtn.addEventListener('click', async function() {
     let url = endpoint;
     
     // Build URL with params
-    if (endpoint === '/api/anime/search') {
+    if (endpoint === '/api/search') {
         const query = queryInput.value.trim();
         if (!query) {
             showToast('Please enter a search query', 'warning');
             return;
         }
-        url = `${endpoint}?query=${encodeURIComponent(query)}`;
-    } else if (endpoint === '/api/anime/anime/detail' || endpoint === '/api/anime/episode/detail') {
-        const urlParam = urlInput.value.trim();
-        if (!urlParam) {
-            showToast('Please enter a URL', 'warning');
+        url = `${endpoint}?q=${encodeURIComponent(query)}`;
+    } else if (endpoint === '/api/anime' || endpoint === '/api/episode' || 
+               endpoint === '/api/batch' || endpoint === '/api/complete-downloads') {
+        const slug = slugInput.value.trim();
+        if (!slug) {
+            showToast('Please enter a slug', 'warning');
             return;
         }
-        url = `${endpoint}?url=${encodeURIComponent(urlParam)}`;
+        url = `${endpoint}/${encodeURIComponent(slug)}`;
     }
     
-    // Test API
     await testApi(url);
 });
 
@@ -71,6 +91,7 @@ clearBtn.addEventListener('click', function() {
     `;
     resultStatus.className = 'result-status';
     resultStatus.innerHTML = '<i class="fas fa-circle"></i> Ready';
+    resultTime.textContent = '';
 });
 
 // Copy result
@@ -86,30 +107,35 @@ copyResultBtn.addEventListener('click', function() {
 
 // Test API function
 async function testApi(url) {
+    const startTime = Date.now();
+    
     // Set loading state
     testBtn.disabled = true;
     testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
     resultStatus.className = 'result-status loading';
     resultStatus.innerHTML = '<i class="fas fa-circle"></i> Loading...';
+    resultTime.textContent = '';
     
     try {
         const response = await fetch(url);
         const data = await response.json();
+        const duration = Date.now() - startTime;
         
         // Format JSON with syntax highlighting
         const formatted = syntaxHighlight(JSON.stringify(data, null, 2));
         
         resultBody.innerHTML = `<pre>${formatted}</pre>`;
+        resultTime.textContent = `${duration}ms`;
         
         // Update status
-        if (response.ok) {
+        if (response.ok && data.ok !== false) {
             resultStatus.className = 'result-status success';
             resultStatus.innerHTML = '<i class="fas fa-circle"></i> Success';
             showToast('API request successful!', 'success');
         } else {
             resultStatus.className = 'result-status error';
             resultStatus.innerHTML = '<i class="fas fa-circle"></i> Error';
-            showToast(`Error: ${response.status}`, 'error');
+            showToast(`Error: ${data.error || response.status}`, 'error');
         }
     } catch (error) {
         resultBody.innerHTML = `
@@ -199,10 +225,7 @@ function showToast(message, type = 'info') {
     `;
     document.body.appendChild(toast);
 
-    // Show
     setTimeout(() => toast.classList.add('show'), 10);
-
-    // Hide after 3s
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
@@ -211,20 +234,17 @@ function showToast(message, type = 'info') {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-    // Ctrl+Enter to test
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         testBtn.click();
     }
-    
-    // Escape to clear
     if (e.key === 'Escape') {
         clearBtn.click();
     }
 });
 
 // Console greeting
-console.log('%c🎌 Otakudesu REST API', 'font-size: 24px; font-weight: bold; color: #667eea;');
+console.log('%c🎌 Otakudesu REST API v2.0', 'font-size: 24px; font-weight: bold; color: #667eea;');
 console.log('%c📚 Docs: /docs', 'font-size: 14px; color: #6b7280;');
-console.log('%c🔗 GitHub: https://github.com/username/otakudesu-api', 'font-size: 14px; color: #6b7280;');
+console.log('%c🔒 Trust Proxy: Enabled', 'font-size: 14px; color: #10b981;');
 console.log('%c💡 Tip: Ctrl+Enter to test API', 'font-size: 14px; color: #f59e0b;');
