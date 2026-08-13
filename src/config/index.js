@@ -1,21 +1,17 @@
 require('dotenv').config();
 
-// Fallback untuk Vercel
-const config = {
-  port: process.env.PORT || 3000,
-  baseUrl: process.env.BASE_URL || 'https://otakudesu.blog',
-  cacheTime: parseInt(process.env.CACHE_TIME) || 300,
-  rateLimit: {
-    max: parseInt(process.env.MAX_REQUESTS) || 100,
-    windowMs: parseInt(process.env.WINDOW_MS) || 60000
+module.exports = {
+  port: parseInt(process.env.PORT) || 3000,
+  baseUrl: process.env.OTAKUDESU_BASE_URL || 'https://otakudesu.blog',
+  timeout: parseInt(process.env.REQUEST_TIMEOUT_MS) || 15000,
+  cache: {
+    ttl: parseInt(process.env.CACHE_TTL_MS) || 300000,
+    maxEntries: parseInt(process.env.CACHE_MAX_ENTRIES) || 500
   },
-  isDev: process.env.NODE_ENV !== 'production'
+  rateLimit: {
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000,
+    max: parseInt(process.env.RATE_LIMIT_MAX) || 60
+  },
+  corsOrigin: process.env.CORS_ORIGIN || '*',
+  searchMaxLength: parseInt(process.env.SEARCH_QUERY_MAX_LENGTH) || 100
 };
-
-console.log('Config loaded:', {
-  baseUrl: config.baseUrl,
-  isDev: config.isDev,
-  nodeEnv: process.env.NODE_ENV
-});
-
-module.exports = config;
