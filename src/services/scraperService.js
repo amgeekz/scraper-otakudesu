@@ -1,402 +1,663 @@
-const { fetchHTML, cleanText, extractNumber, formatDate } = require('../utils/helpers');
+const { fetchHTML, cleanText, extractNumber, extractSlug, normalizeUrl, formatDate } = require('../utils/helpers');
+const cache = require('../utils/cache');
 const config = require('../config');
 
 class ScraperService {
   constructor() {
-    this.baseUrl = config.baseUrl || 'https://otakudesu.blog';
-    console.log('ScraperService initialized with baseUrl:', this.baseUrl);
+    this.baseUrl = config.baseUrl;
   }
 
-  async getLatestEpisodes() {
-    try {
-      console.log('Fetching latest episodes from:', this.baseUrl);
-      const $ = await fetchHTML(this.baseUrl);
-      const episodes = [];
-
-      $('.episode, .listepisode, .venz .episode').each((index, element) => {
-        const title = $(element).find('.episode-title a, .title a, h2 a').first().text();
-        const link = $(element).find('.episode-title a, .title a, h2 a').first().attr('href');
-        const image = $(element).find('img').attr('src');
-        const episode = $(element).find('.episode-number, .eps, .epz').text();
-        const date = $(element).find('.episode-date, .date, time').text();
-
-        if (title && link) {
-          episodes.push({
-            title: cleanText(title),
-            link: this.normalizeUrl(link),
-            image: image ? this.normalizeUrl(image) : null,
-            episode: cleanText(episode) || 'Episode 1',
-            date: formatDate(date) || cleanText(date) || new Date().toISOString().split('T')[0]
-          });
-        }
-      });
-
-      console.log(`Found ${episodes.length} episodes`);
-      return episodes;
-    } catch (error) {
-      console.error('Error in getLatestEpisodes:', error.message);
-      // Return empty array instead of throwing
-      return [];
+  // === HOME / LATEST ===
+  async getLatest() {
+    const cacheKey = 'latest';
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
     }
+
+    const $ = await fetchHTML(this.baseUrl);
+    const ongoingAnime = [];
+    const completeAnime = [];
+
+    // Ambil dari homepage (selector disesuaikan)
+    $('.venz .col-md-3, .listanime .col-md-3, .anime-list .item').each((i, el) => {
+      const title = $(el).find('.thumb a, .image a').attr('title') || $(el).find('.thumb a, .image a').text();
+      const link = $(el).find('.thumb a, .image a').attr('href');
+      const image = $(el).find('.thumb img, .image img').attr('src');
+      const episode = $(el).find('.epz, .eps, .info .episode').text();
+      const genre = $(el).find('.genre, .genres, .info .genre').text();
+
+      if (title && link) {
+        const anime = {
+          title: cleanText(title),
+          slug: extractSlug(link),
+          url: normalizeUrl(link, this.baseUrl),
+          image_url: image ? normalizeUrl(image, this.baseUrl) : null,
+          episode: cleanText(episode) || null,
+          genre: cleanText(genre).split(',').map(g => g.trim()).filter(Boolean)
+        };
+
+        // Cek apakah ini ongoing atau complete berdasarkan ada/tidaknya episode
+        if (episode && episode.includes('Episode')) {
+          ongoingAnime.push(anime);
+        } else {
+          completeAnime.push(anime);
+        }
+      }
+    });
+
+    const result = { ongoing_anime: ongoingAnime, complete_anime: completeAnime };
+    cache.set(cacheKey, result);
+    return result;
   }
 
-  async getOngoingAnime(page = 1) {
-    try {
-      const url = page === 1 
-        ? `${this.baseUrl}/ongoing-anime`
-        : `${this.baseUrl}/ongoing-anime/page/${page}`;
-      
-      console.log('Fetching ongoing anime from:', url);
-      const $ = await fetchHTML(url);
-      const animeList = [];
-
-      $('.venz .col-md-3, .listanime .col-md-3, .anime-list .item').each((index, element) => {
-        const title = $(element).find('.thumb a, .image a').attr('title') || 
-                      $(element).find('.thumb a, .image a').text();
-        const link = $(element).find('.thumb a, .image a').attr('href');
-        const image = $(element).find('.thumb img, .image img').attr('src');
-        const episode = $(element).find('.epz, .eps, .info .episode').text();
-        const genre = $(element).find('.genre, .genres, .info .genre').text();
-
-        if (title && link) {
-          animeList.push({
-            title: cleanText(title),
-            link: this.normalizeUrl(link),
-            image: image ? this.normalizeUrl(image) : null,
-            episode: cleanText(episode) || 'Ongoing',
-            genre: cleanText(genre).split(',').map(g => g.trim()).filter(Boolean)
-          });
-        }
-      });
-
-      const pagination = {
-        current: page,
-        total: this.getTotalPages($) || 1
-      };
-
-      console.log(`Found ${animeList.length} ongoing anime`);
-      return { animeList, pagination };
-    } catch (error) {
-      console.error('Error in getOngoingAnime:', error.message);
-      return { animeList: [], pagination: { current: page, total: 1 } };
+  // === SEARCH ===
+  async search(query) {
+    const cacheKey = `search:${query}`;
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
     }
+
+    const url = `${this.baseUrl}/?s=${encodeURIComponent(query)}&post_type=anime`;
+    const $ = await fetchHTML(url);
+    const results = [];
+
+    $('.chivsrc li, .search-results .item, .result-item').each((i, el) => {
+      const title = $(el).find('h2 a, h3 a, .title a').text();
+      const link = $(el).find('h2 a, h3 a, .title a').attr('href');
+      const image = $(el).find('img').attr('src');
+      const genre = $(el).find('.set, .genre, .info').text();
+      const status = $(el).find('.type, .status, .info .status').text();
+      const rating = $(el).find('.score, .rating').text();
+
+      if (title && link) {
+        results.push({
+          title: cleanText(title),
+          slug: extractSlug(link),
+          url: normalizeUrl(link, this.baseUrl),
+          image_url: image ? normalizeUrl(image, this.baseUrl) : null,
+          genres: cleanText(genre).split(',').map(g => g.trim()).filter(Boolean),
+          status: cleanText(status) || null,
+          rating: cleanText(rating) || null
+        });
+      }
+    });
+
+    cache.set(cacheKey, results);
+    return results;
   }
 
-  async getCompleteAnime(page = 1) {
-    try {
-      const url = page === 1
-        ? `${this.baseUrl}/complete-anime`
-        : `${this.baseUrl}/complete-anime/page/${page}`;
-      
-      console.log('Fetching complete anime from:', url);
-      const $ = await fetchHTML(url);
-      const animeList = [];
-
-      $('.venz .col-md-3, .listanime .col-md-3, .anime-list .item').each((index, element) => {
-        const title = $(element).find('.thumb a, .image a').attr('title') || 
-                      $(element).find('.thumb a, .image a').text();
-        const link = $(element).find('.thumb a, .image a').attr('href');
-        const image = $(element).find('.thumb img, .image img').attr('src');
-        const rating = $(element).find('.score, .rating, .info .score').text();
-        const genre = $(element).find('.genre, .genres, .info .genre').text();
-
-        if (title && link) {
-          animeList.push({
-            title: cleanText(title),
-            link: this.normalizeUrl(link),
-            image: image ? this.normalizeUrl(image) : null,
-            rating: cleanText(rating) || 'N/A',
-            genre: cleanText(genre).split(',').map(g => g.trim()).filter(Boolean)
-          });
-        }
-      });
-
-      const pagination = {
-        current: page,
-        total: this.getTotalPages($) || 1
-      };
-
-      console.log(`Found ${animeList.length} complete anime`);
-      return { animeList, pagination };
-    } catch (error) {
-      console.error('Error in getCompleteAnime:', error.message);
-      return { animeList: [], pagination: { current: page, total: 1 } };
+  // === ONGOING ANIME ===
+  async getOngoing(page = 1) {
+    const cacheKey = `ongoing:${page}`;
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
     }
+
+    const url = page === 1 
+      ? `${this.baseUrl}/ongoing-anime`
+      : `${this.baseUrl}/ongoing-anime/page/${page}`;
+    
+    const $ = await fetchHTML(url);
+    const animeList = [];
+
+    $('.venz .col-md-3, .listanime .col-md-3, .anime-list .item').each((i, el) => {
+      const title = $(el).find('.thumb a, .image a').attr('title') || $(el).find('.thumb a, .image a').text();
+      const link = $(el).find('.thumb a, .image a').attr('href');
+      const image = $(el).find('.thumb img, .image img').attr('src');
+      const episode = $(el).find('.epz, .eps, .info .episode').text();
+      const genre = $(el).find('.genre, .genres, .info .genre').text();
+
+      if (title && link) {
+        animeList.push({
+          title: cleanText(title),
+          slug: extractSlug(link),
+          url: normalizeUrl(link, this.baseUrl),
+          image_url: image ? normalizeUrl(image, this.baseUrl) : null,
+          episode: cleanText(episode) || null,
+          genres: cleanText(genre).split(',').map(g => g.trim()).filter(Boolean)
+        });
+      }
+    });
+
+    const result = { data: animeList, page };
+    cache.set(cacheKey, result);
+    return result;
   }
 
-  async searchAnime(query) {
-    try {
-      const url = `${this.baseUrl}/?s=${encodeURIComponent(query)}&post_type=anime`;
-      console.log('Searching anime from:', url);
-      const $ = await fetchHTML(url);
-      const results = [];
-
-      $('.chivsrc li, .search-results .item, .result-item').each((index, element) => {
-        const title = $(element).find('h2 a, h3 a, .title a').text();
-        const link = $(element).find('h2 a, h3 a, .title a').attr('href');
-        const image = $(element).find('img').attr('src');
-        const genre = $(element).find('.set, .genre, .info').text();
-        const status = $(element).find('.type, .status, .info .status').text();
-
-        if (title && link) {
-          results.push({
-            title: cleanText(title),
-            link: this.normalizeUrl(link),
-            image: image ? this.normalizeUrl(image) : null,
-            genre: cleanText(genre),
-            status: cleanText(status) || 'Unknown'
-          });
-        }
-      });
-
-      console.log(`Found ${results.length} search results`);
-      return results;
-    } catch (error) {
-      console.error('Error in searchAnime:', error.message);
-      return [];
+  // === COMPLETED ANIME ===
+  async getCompleted(page = 1) {
+    const cacheKey = `completed:${page}`;
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
     }
+
+    const url = page === 1
+      ? `${this.baseUrl}/complete-anime`
+      : `${this.baseUrl}/complete-anime/page/${page}`;
+    
+    const $ = await fetchHTML(url);
+    const animeList = [];
+
+    $('.venz .col-md-3, .listanime .col-md-3, .anime-list .item').each((i, el) => {
+      const title = $(el).find('.thumb a, .image a').attr('title') || $(el).find('.thumb a, .image a').text();
+      const link = $(el).find('.thumb a, .image a').attr('href');
+      const image = $(el).find('.thumb img, .image img').attr('src');
+      const rating = $(el).find('.score, .rating').text();
+      const genre = $(el).find('.genre, .genres, .info .genre').text();
+
+      if (title && link) {
+        animeList.push({
+          title: cleanText(title),
+          slug: extractSlug(link),
+          url: normalizeUrl(link, this.baseUrl),
+          image_url: image ? normalizeUrl(image, this.baseUrl) : null,
+          rating: cleanText(rating) || null,
+          genres: cleanText(genre).split(',').map(g => g.trim()).filter(Boolean)
+        });
+      }
+    });
+
+    const result = { data: animeList, page };
+    cache.set(cacheKey, result);
+    return result;
   }
 
-  async getAnimeDetail(url) {
-    try {
-      console.log('Fetching anime detail from:', url);
-      const $ = await fetchHTML(url);
-      
-      const title = $('.infoanime h1, .anime-title h1, .title-single').text();
-      const image = $('.infoanime img, .anime-image img, .thumb img').first().attr('src');
-      const synopsis = $('.sinopsis p, .description p, .synopsis p').text();
-      const info = {};
-
-      $('.infoanime .info, .anime-info .info, .info-detail').each((index, element) => {
-        const label = $(element).find('b, strong, .label').text().replace(':', '');
-        const value = $(element).text().replace(`${label}:`, '').replace(`${label}`, '').trim();
-        if (label && value) {
-          info[label.toLowerCase().trim()] = cleanText(value);
-        }
-      });
-
-      const episodes = [];
-      $('.episodelist ul li, .episode-list .item, .list-episode li').each((index, element) => {
-        const episodeTitle = $(element).find('a').text();
-        const episodeLink = $(element).find('a').attr('href');
-        const episodeDate = $(element).find('.date, time').text();
-
-        if (episodeLink) {
-          episodes.push({
-            title: cleanText(episodeTitle) || `Episode ${index + 1}`,
-            link: this.normalizeUrl(episodeLink),
-            date: formatDate(episodeDate) || cleanText(episodeDate) || null
-          });
-        }
-      });
-
-      return {
-        title: cleanText(title) || 'Unknown',
-        image: image ? this.normalizeUrl(image) : null,
-        synopsis: cleanText(synopsis) || 'No synopsis available',
-        info,
-        episodes: episodes.reverse()
-      };
-    } catch (error) {
-      console.error('Error in getAnimeDetail:', error.message);
-      return {
-        title: 'Error',
-        image: null,
-        synopsis: 'Failed to fetch details',
-        info: {},
-        episodes: []
-      };
+  // === ANIME LIST ===
+  async getAnimeList() {
+    const cacheKey = 'anime-list';
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
     }
+
+    const url = `${this.baseUrl}/anime-list`;
+    const $ = await fetchHTML(url);
+    const animeList = [];
+
+    // Selector untuk anime list
+    $('.anime-list a, .list-anime a, .daftar-anime a').each((i, el) => {
+      const title = $(el).text();
+      const link = $(el).attr('href');
+      if (title && link) {
+        animeList.push({
+          title: cleanText(title),
+          slug: extractSlug(link),
+          url: normalizeUrl(link, this.baseUrl)
+        });
+      }
+    });
+
+    cache.set(cacheKey, animeList);
+    return animeList;
   }
 
-  async getEpisodeDetail(url) {
-    try {
-      console.log('Fetching episode detail from:', url);
-      const $ = await fetchHTML(url);
-      
-      const title = $('.breadcrumb .active, .episode-title, h1.entry-title').text();
-      const animeTitle = $('.breadcrumb a, .anime-title a').eq(1).text();
-      const animeLink = $('.breadcrumb a, .anime-title a').eq(1).attr('href');
-      
-      const streams = [];
-      $('.download-link .btn, .stream-link .btn, .download a').each((index, element) => {
-        const quality = $(element).text().trim();
-        const link = $(element).attr('href');
-        if (link) {
-          streams.push({
-            quality: cleanText(quality) || `Quality ${index + 1}`,
-            link: this.normalizeUrl(link)
-          });
-        }
-      });
-
-      const downloads = [];
-      $('.download-link .download, .download-list a, .dl-list a').each((index, element) => {
-        const quality = $(element).text().trim();
-        const link = $(element).attr('href');
-        if (link) {
-          downloads.push({
-            quality: cleanText(quality) || `Download ${index + 1}`,
-            link: this.normalizeUrl(link)
-          });
-        }
-      });
-
-      return {
-        title: cleanText(title) || 'Episode',
-        anime: {
-          title: cleanText(animeTitle) || 'Unknown',
-          link: animeLink ? this.normalizeUrl(animeLink) : null
-        },
-        streams: streams.length > 0 ? streams : downloads,
-        downloads: downloads.length > 0 ? downloads : []
-      };
-    } catch (error) {
-      console.error('Error in getEpisodeDetail:', error.message);
-      return {
-        title: 'Error',
-        anime: { title: 'Unknown', link: null },
-        streams: [],
-        downloads: []
-      };
-    }
-  }
-
+  // === GENRES ===
   async getGenres() {
-    try {
-      const url = `${this.baseUrl}/genre`;
-      console.log('Fetching genres from:', url);
-      const $ = await fetchHTML(url);
-      const genres = [];
-
-      $('.genre-list a, .genres a, .list-genre a').each((index, element) => {
-        const name = $(element).text();
-        const link = $(element).attr('href');
-        if (name && link) {
-          genres.push({
-            name: cleanText(name),
-            link: this.normalizeUrl(link)
-          });
-        }
-      });
-
-      console.log(`Found ${genres.length} genres`);
-      return genres;
-    } catch (error) {
-      console.error('Error in getGenres:', error.message);
-      return [];
+    const cacheKey = 'genres';
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
     }
+
+    const url = `${this.baseUrl}/genre`;
+    const $ = await fetchHTML(url);
+    const genres = [];
+
+    $('.genre-list a, .genres a, .list-genre a').each((i, el) => {
+      const title = $(el).text();
+      const link = $(el).attr('href');
+      if (title && link) {
+        genres.push({
+          title: cleanText(title),
+          slug: extractSlug(link),
+          url: normalizeUrl(link, this.baseUrl)
+        });
+      }
+    });
+
+    cache.set(cacheKey, genres);
+    return genres;
   }
 
-  async getAnimeByGenre(genre, page = 1) {
-    try {
-      const url = page === 1
-        ? `${this.baseUrl}/genre/${genre}`
-        : `${this.baseUrl}/genre/${genre}/page/${page}`;
-      
-      console.log('Fetching anime by genre from:', url);
-      const $ = await fetchHTML(url);
+  // === SCHEDULE ===
+  async getSchedule() {
+    const cacheKey = 'schedule';
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
+    }
+
+    const url = `${this.baseUrl}/jadwal-rilis`;
+    const $ = await fetchHTML(url);
+    const schedule = [];
+
+    $('.jadwal, .schedule-day, .release-schedule').each((i, el) => {
+      const day = $(el).find('.hari, .day, .day-name').text();
       const animeList = [];
 
-      $('.venz .col-md-3, .listanime .col-md-3, .anime-list .item').each((index, element) => {
-        const title = $(element).find('.thumb a, .image a').attr('title') || 
-                      $(element).find('.thumb a, .image a').text();
-        const link = $(element).find('.thumb a, .image a').attr('href');
-        const image = $(element).find('.thumb img, .image img').attr('src');
-        const rating = $(element).find('.score, .rating').text();
+      $(el).find('.anime, .item, .anime-item').each((j, anime) => {
+        const title = $(anime).find('a, .title').text();
+        const link = $(anime).find('a, .title a').attr('href');
+        const time = $(anime).find('.time, .jam, .time-slot').text();
 
         if (title && link) {
           animeList.push({
             title: cleanText(title),
-            link: this.normalizeUrl(link),
-            image: image ? this.normalizeUrl(image) : null,
-            rating: cleanText(rating) || 'N/A'
+            slug: extractSlug(link),
+            url: normalizeUrl(link, this.baseUrl),
+            time: cleanText(time) || null
           });
         }
       });
 
-      const pagination = {
-        current: page,
-        total: this.getTotalPages($) || 1
-      };
+      if (animeList.length > 0) {
+        schedule.push({
+          day: cleanText(day) || 'Unknown',
+          anime: animeList
+        });
+      }
+    });
 
-      console.log(`Found ${animeList.length} anime for genre ${genre}`);
-      return { animeList, pagination };
-    } catch (error) {
-      console.error('Error in getAnimeByGenre:', error.message);
-      return { animeList: [], pagination: { current: page, total: 1 } };
-    }
+    cache.set(cacheKey, schedule);
+    return schedule;
   }
 
-  async getSchedule() {
-    try {
-      const url = `${this.baseUrl}/jadwal-rilis`;
-      console.log('Fetching schedule from:', url);
-      const $ = await fetchHTML(url);
-      const schedule = {};
+  // === ANIME DETAIL ===
+  async getAnimeDetail(slug) {
+    const cacheKey = `anime:${slug}`;
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
+    }
 
-      $('.jadwal, .schedule-day, .release-schedule').each((index, element) => {
-        const day = $(element).find('.hari, .day, .day-name').text();
-        const animeList = [];
+    const url = `${this.baseUrl}/anime/${slug}/`;
+    const $ = await fetchHTML(url);
+    
+    const title = $('.infoanime h1, .anime-title h1, .title-single').text();
+    const image = $('.infoanime img, .anime-image img, .thumb img').first().attr('src');
+    const synopsis = $('.sinopsis p, .description p, .synopsis p').text();
+    
+    const info = {};
+    $('.infoanime .info, .anime-info .info, .info-detail').each((i, el) => {
+      const label = $(el).find('b, strong, .label').text().replace(':', '');
+      const value = $(el).text().replace(`${label}:`, '').replace(`${label}`, '').trim();
+      if (label && value) {
+        info[label.toLowerCase().trim()] = cleanText(value);
+      }
+    });
 
-        $(element).find('.anime, .item, .anime-item').each((i, anime) => {
-          const title = $(anime).find('a, .title').text();
-          const link = $(anime).find('a, .title a').attr('href');
-          const time = $(anime).find('.time, .jam, .time-slot').text();
+    // Genres
+    const genres = [];
+    $('.infoanime .genre a, .anime-info .genre a, .genres a').each((i, el) => {
+      const genreTitle = $(el).text();
+      const genreLink = $(el).attr('href');
+      if (genreTitle && genreLink) {
+        genres.push({
+          title: cleanText(genreTitle),
+          slug: extractSlug(genreLink),
+          url: normalizeUrl(genreLink, this.baseUrl)
+        });
+      }
+    });
 
-          if (title && link) {
-            animeList.push({
-              title: cleanText(title),
-              link: this.normalizeUrl(link),
-              time: cleanText(time) || 'TBA'
+    // Episodes
+    const episodes = [];
+    $('.episodelist ul li, .episode-list .item, .list-episode li').each((i, el) => {
+      const episodeTitle = $(el).find('a').text();
+      const episodeLink = $(el).find('a').attr('href');
+      const episodeDate = $(el).find('.date, time').text();
+
+      if (episodeLink) {
+        const episodeNum = extractNumber(episodeTitle);
+        episodes.push({
+          title: cleanText(episodeTitle) || `Episode ${i + 1}`,
+          slug: extractSlug(episodeLink),
+          url: normalizeUrl(episodeLink, this.baseUrl),
+          episode: episodeNum,
+          date: formatDate(episodeDate) || cleanText(episodeDate) || null
+        });
+      }
+    });
+
+    // Batch & Complete Download
+    let batch = null;
+    let completeDownload = null;
+
+    $('.batch-link a, .download-batch a').each((i, el) => {
+      const batchTitle = $(el).text();
+      const batchLink = $(el).attr('href');
+      if (batchTitle && batchLink) {
+        const batchSlug = extractSlug(batchLink);
+        if (batchSlug && batchSlug.includes('batch')) {
+          batch = {
+            title: cleanText(batchTitle),
+            slug: batchSlug,
+            url: normalizeUrl(batchLink, this.baseUrl)
+          };
+        } else if (batchSlug && batchSlug.includes('lengkap')) {
+          completeDownload = {
+            title: cleanText(batchTitle),
+            slug: batchSlug,
+            url: normalizeUrl(batchLink, this.baseUrl)
+          };
+        }
+      }
+    });
+
+    const result = {
+      title: cleanText(title) || 'Unknown',
+      slug,
+      url: normalizeUrl(url, this.baseUrl),
+      image_url: image ? normalizeUrl(image, this.baseUrl) : null,
+      japanese: info['japanese'] || null,
+      score: info['skor'] || info['score'] || null,
+      producer: info['produser'] || info['producer'] || null,
+      type: info['tipe'] || info['type'] || null,
+      status: info['status'] || null,
+      total_episodes: info['total episode'] || info['episode'] || null,
+      duration: info['durasi'] || info['duration'] || null,
+      release_date: info['rilis'] || info['release'] || null,
+      studio: info['studio'] || null,
+      genres,
+      synopsis: cleanText(synopsis) || 'No synopsis available',
+      batch,
+      complete_download: completeDownload,
+      episodes: episodes.reverse()
+    };
+
+    cache.set(cacheKey, result);
+    return result;
+  }
+
+  // === EPISODE DETAIL ===
+  async getEpisodeDetail(slug) {
+    const cacheKey = `episode:${slug}`;
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
+    }
+
+    const url = `${this.baseUrl}/episode/${slug}/`;
+    const $ = await fetchHTML(url);
+    
+    const title = $('.breadcrumb .active, .episode-title, h1.entry-title').text();
+    const animeTitle = $('.breadcrumb a, .anime-title a').eq(1).text();
+    const animeLink = $('.breadcrumb a, .anime-title a').eq(1).attr('href');
+    
+    // Stream URL (iframe)
+    let streamUrl = null;
+    $('iframe').each((i, el) => {
+      const src = $(el).attr('src');
+      if (src && !src.includes('google') && !src.includes('facebook')) {
+        streamUrl = src;
+        return false;
+      }
+    });
+
+    // Mirrors
+    const mirrors = [];
+    $('.mirror-link, .stream-mirror, .mirror-item').each((i, el) => {
+      const quality = $(el).find('.quality, .label').text();
+      const providers = [];
+      $(el).find('a, .provider').each((j, provider) => {
+        const name = $(provider).text();
+        const link = $(provider).attr('href');
+        const dataContent = $(provider).attr('data-content') || null;
+        if (name && link) {
+          providers.push({
+            name: cleanText(name),
+            data_content: dataContent,
+            is_default: link.includes('default') || false
+          });
+        }
+      });
+      if (providers.length > 0) {
+        mirrors.push({
+          quality: cleanText(quality) || 'Default',
+          providers
+        });
+      }
+    });
+
+    // Downloads
+    const downloads = [];
+    $('.download-link .download, .download-list .item, .dl-list .item').each((i, el) => {
+      const quality = $(el).find('.quality, .label').text();
+      const size = $(el).find('.size, .filesize').text();
+      const links = [];
+      $(el).find('a').each((j, link) => {
+        const provider = $(link).text();
+        const urlLink = $(link).attr('href');
+        if (provider && urlLink) {
+          links.push({
+            provider: cleanText(provider),
+            url: normalizeUrl(urlLink, this.baseUrl)
+          });
+        }
+      });
+      if (links.length > 0) {
+        downloads.push({
+          quality: cleanText(quality) || 'Unknown',
+          size: cleanText(size) || null,
+          links
+        });
+      }
+    });
+
+    // Episode selector (previous, next, all)
+    const episodeSelector = [];
+    $('.episode-selector a, .episode-nav a, .nav-links a').each((i, el) => {
+      const epTitle = $(el).text();
+      const epLink = $(el).attr('href');
+      if (epLink) {
+        episodeSelector.push({
+          title: cleanText(epTitle),
+          slug: extractSlug(epLink),
+          url: normalizeUrl(epLink, this.baseUrl)
+        });
+      }
+    });
+
+    const previousEpisode = episodeSelector.find(e => e.title.includes('Previous') || e.title.includes('Prev')) || null;
+    const nextEpisode = episodeSelector.find(e => e.title.includes('Next')) || null;
+    const allEpisodes = episodeSelector.find(e => e.title.includes('All')) || null;
+
+    const episodeNum = extractNumber(title);
+
+    const result = {
+      title: cleanText(title) || 'Episode',
+      slug,
+      url: normalizeUrl(url, this.baseUrl),
+      episode: episodeNum,
+      anime: animeTitle && animeLink ? {
+        title: cleanText(animeTitle),
+        slug: extractSlug(animeLink),
+        url: normalizeUrl(animeLink, this.baseUrl)
+      } : null,
+      stream_url: streamUrl,
+      mirrors,
+      downloads,
+      episode_selector: episodeSelector,
+      previous_episode: previousEpisode,
+      next_episode: nextEpisode,
+      all_episodes: allEpisodes
+    };
+
+    cache.set(cacheKey, result);
+    return result;
+  }
+
+  // === BATCH DETAIL ===
+  async getBatchDetail(slug) {
+    const cacheKey = `batch:${slug}`;
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
+    }
+
+    const url = `${this.baseUrl}/batch/${slug}/`;
+    const $ = await fetchHTML(url);
+    
+    const title = $('.infoanime h1, .anime-title h1, .title-single').text();
+    const image = $('.infoanime img, .anime-image img, .thumb img').first().attr('src');
+    
+    const metadata = {};
+    $('.infoanime .info, .anime-info .info, .info-detail').each((i, el) => {
+      const label = $(el).find('b, strong, .label').text().replace(':', '');
+      const value = $(el).text().replace(`${label}:`, '').replace(`${label}`, '').trim();
+      if (label && value) {
+        metadata[label.toLowerCase().trim()] = cleanText(value);
+      }
+    });
+
+    const animeTitle = $('.breadcrumb a, .anime-title a').eq(1).text();
+    const animeLink = $('.breadcrumb a, .anime-title a').eq(1).attr('href');
+
+    // Downloads
+    const downloads = [];
+    $('.download-link .download, .download-list .item, .dl-list .item').each((i, el) => {
+      const quality = $(el).find('.quality, .label').text();
+      const size = $(el).find('.size, .filesize').text();
+      const links = [];
+      $(el).find('a').each((j, link) => {
+        const provider = $(link).text();
+        const urlLink = $(link).attr('href');
+        if (provider && urlLink) {
+          links.push({
+            provider: cleanText(provider),
+            url: normalizeUrl(urlLink, this.baseUrl)
+          });
+        }
+      });
+      if (links.length > 0) {
+        downloads.push({
+          quality: cleanText(quality) || 'Unknown',
+          size: cleanText(size) || null,
+          links
+        });
+      }
+    });
+
+    const result = {
+      title: cleanText(title) || 'Batch',
+      slug,
+      url: normalizeUrl(url, this.baseUrl),
+      anime: animeTitle && animeLink ? {
+        title: cleanText(animeTitle),
+        slug: extractSlug(animeLink),
+        url: normalizeUrl(animeLink, this.baseUrl)
+      } : null,
+      image_url: image ? normalizeUrl(image, this.baseUrl) : null,
+      metadata,
+      downloads
+    };
+
+    cache.set(cacheKey, result);
+    return result;
+  }
+
+  // === COMPLETE DOWNLOADS ===
+  async getCompleteDownloads(slug) {
+    const cacheKey = `complete:${slug}`;
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
+    }
+
+    const url = `${this.baseUrl}/lengkap/${slug}/`;
+    const $ = await fetchHTML(url);
+    
+    const title = $('.infoanime h1, .anime-title h1, .title-single').text();
+    
+    const metadata = {};
+    $('.infoanime .info, .anime-info .info, .info-detail').each((i, el) => {
+      const label = $(el).find('b, strong, .label').text().replace(':', '');
+      const value = $(el).text().replace(`${label}:`, '').replace(`${label}`, '').trim();
+      if (label && value) {
+        metadata[label.toLowerCase().trim()] = cleanText(value);
+      }
+    });
+
+    const animeTitle = $('.breadcrumb a, .anime-title a').eq(1).text();
+    const animeLink = $('.breadcrumb a, .anime-title a').eq(1).attr('href');
+
+    // Episodes with downloads
+    const episodes = [];
+    $('.episode-item, .list-episode .item, .episode-list .item').each((i, el) => {
+      const epTitle = $(el).find('.title, .episode-title').text();
+      const epNum = extractNumber(epTitle);
+      const isFinal = epTitle.toLowerCase().includes('end') || false;
+      
+      const downloads = [];
+      $(el).find('.download-link .download, .download-list .item, .dl-list .item').each((j, dl) => {
+        const quality = $(dl).find('.quality, .label').text();
+        const size = $(dl).find('.size, .filesize').text();
+        const links = [];
+        $(dl).find('a').each((k, link) => {
+          const provider = $(link).text();
+          const urlLink = $(link).attr('href');
+          if (provider && urlLink) {
+            links.push({
+              provider: cleanText(provider),
+              url: normalizeUrl(urlLink, this.baseUrl)
             });
           }
         });
-
-        if (animeList.length > 0) {
-          schedule[cleanText(day) || 'Unknown'] = animeList;
+        if (links.length > 0) {
+          downloads.push({
+            quality: cleanText(quality) || 'Unknown',
+            size: cleanText(size) || null,
+            links
+          });
         }
       });
 
-      console.log(`Found schedule for ${Object.keys(schedule).length} days`);
-      return schedule;
-    } catch (error) {
-      console.error('Error in getSchedule:', error.message);
-      return {};
-    }
-  }
-
-  normalizeUrl(url) {
-    if (!url) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    if (url.startsWith('//')) {
-      return `https:${url}`;
-    }
-    if (url.startsWith('/')) {
-      return `${this.baseUrl}${url}`;
-    }
-    return `${this.baseUrl}/${url}`;
-  }
-
-  getTotalPages($) {
-    try {
-      const pagination = $('.pagination, .nav-links, .page-numbers');
-      if (pagination.length === 0) return 1;
-
-      const lastPage = pagination.find('a').last();
-      if (lastPage.text() === '»' || lastPage.text() === 'Next' || lastPage.text() === '→') {
-        const prevPage = pagination.find('a').eq(-2);
-        return extractNumber(prevPage.text()) || 1;
+      if (downloads.length > 0) {
+        episodes.push({
+          episode: epNum,
+          title: cleanText(epTitle) || `Episode ${i + 1}`,
+          is_final: isFinal,
+          downloads
+        });
       }
+    });
 
-      return extractNumber(lastPage.text()) || 1;
-    } catch (error) {
-      console.error('Error in getTotalPages:', error.message);
-      return 1;
-    }
+    // Batch downloads (if any)
+    const batchDownloads = [];
+    $('.batch-download .download, .batch-list .item').each((i, el) => {
+      const quality = $(el).find('.quality, .label').text();
+      const size = $(el).find('.size, .filesize').text();
+      const links = [];
+      $(el).find('a').each((j, link) => {
+        const provider = $(link).text();
+        const urlLink = $(link).attr('href');
+        if (provider && urlLink) {
+          links.push({
+            provider: cleanText(provider),
+            url: normalizeUrl(urlLink, this.baseUrl)
+          });
+        }
+      });
+      if (links.length > 0) {
+        batchDownloads.push({
+          quality: cleanText(quality) || 'Unknown',
+          size: cleanText(size) || null,
+          links
+        });
+      }
+    });
+
+    const result = {
+      title: cleanText(title) || 'Complete Downloads',
+      slug,
+      url: normalizeUrl(url, this.baseUrl),
+      anime: animeTitle && animeLink ? {
+        title: cleanText(animeTitle),
+        slug: extractSlug(animeLink),
+        url: normalizeUrl(animeLink, this.baseUrl)
+      } : null,
+      metadata,
+      episodes,
+      batch: batchDownloads
+    };
+
+    cache.set(cacheKey, result);
+    return result;
   }
 }
 
 module.exports = new ScraperService();
+          
