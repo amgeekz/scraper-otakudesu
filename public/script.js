@@ -64,9 +64,15 @@ function renderEndpoints() {
 
     let html = '';
     for (const [group, endpoints] of Object.entries(groups)) {
+        const iconMap = {
+            'Service': 'heartbeat',
+            'Main': 'database',
+            'List': 'list',
+            'Detail': 'info-circle'
+        };
         html += `
             <div class="endpoint-group">
-                <div class="group-title"><i class="fas fa-${group === 'Service' ? 'heartbeat' : group === 'Main' ? 'database' : group === 'List' ? 'list' : 'info-circle'}"></i> ${group}</div>
+                <div class="group-title"><i class="fas fa-${iconMap[group] || 'circle'}"></i> ${group}</div>
         `;
         endpoints.forEach(ep => {
             const methodClass = `method-${ep.method.toLowerCase()}`;
@@ -212,7 +218,9 @@ expandResultBtn.addEventListener('click', function() {
     }
 });
 
-// Test API function
+// ========================================
+// TEST API FUNCTION - DENGAN ERROR HANDLING LEBIH BAIK
+// ========================================
 async function testApi(url) {
     const startTime = Date.now();
     
@@ -226,41 +234,111 @@ async function testApi(url) {
     
     try {
         const response = await fetch(url);
-        const data = await response.json();
         const duration = Date.now() - startTime;
-        const size = new Blob([JSON.stringify(data)]).size;
         
-        // Format JSON with syntax highlighting
-        const formatted = syntaxHighlight(JSON.stringify(data, null, 2));
+        // Cek content-type
+        const contentType = response.headers.get('content-type') || '';
         
-        resultBody.innerHTML = `<pre>${formatted}</pre>`;
+        // Baca response sebagai text dulu
+        const rawText = await response.text();
+        
+        // Coba parse JSON
+        let data = null;
+        let isJson = false;
+        
+        try {
+            if (contentType.includes('application/json') || rawText.trim().startsWith('{') || rawText.trim().startsWith('[')) {
+                data = JSON.parse(rawText);
+                isJson = true;
+            }
+        } catch (parseError) {
+            console.warn('Response is not valid JSON:', parseError.message);
+        }
+        
+        const size = new Blob([rawText]).size;
+        
+        // Tampilkan response
+        if (isJson && data) {
+            // Format JSON dengan syntax highlighting
+            const formatted = syntaxHighlight(JSON.stringify(data, null, 2));
+            resultBody.innerHTML = `<pre>${formatted}</pre>`;
+            
+            // Update status
+            if (response.ok && data.ok !== false) {
+                resultStatus.className = 'result-status success';
+                resultStatus.innerHTML = '<i class="fas fa-circle"></i> Success';
+                showToast('Request successful!', 'success');
+            } else {
+                resultStatus.className = 'result-status error';
+                resultStatus.innerHTML = '<i class="fas fa-circle"></i> Error';
+                showToast(`Error: ${data.error || data.message || response.status}`, 'error');
+            }
+        } else {
+            // Bukan JSON - tampilkan sebagai text/HTML
+            const isHtml = rawText.includes('<html') || rawText.includes('<!DOCTYPE');
+            const isError = rawText.includes('403') || rawText.includes('Forbidden') || rawText.includes('blocked');
+            
+            let displayText = rawText;
+            if (isError) {
+                displayText = '⚠️ Access Denied (403)\n\nThe website is blocking the request. This usually happens when:\n• The website detects automated requests\n• The IP address is rate-limited\n• The User-Agent is blocked\n\nTry again in a few minutes or use a different network.';
+                resultStatus.className = 'result-status error';
+                resultStatus.innerHTML = '<i class="fas fa-circle"></i> Blocked (403)';
+                showToast('Access Denied (403) - Website blocking request', 'error');
+            } else if (isHtml) {
+                displayText = '📄 HTML Response (not JSON)\n\n' + rawText.substring(0, 500) + (rawText.length > 500 ? '\n\n... (truncated)' : '');
+                resultStatus.className = 'result-status error';
+                resultStatus.innerHTML = '<i class="fas fa-circle"></i> Not JSON';
+                showToast('Response is HTML, not JSON', 'warning');
+            } else {
+                displayText = '📝 Text Response\n\n' + rawText.substring(0, 500) + (rawText.length > 500 ? '\n\n... (truncated)' : '');
+                resultStatus.className = 'result-status error';
+                resultStatus.innerHTML = '<i class="fas fa-circle"></i> Invalid Response';
+                showToast('Invalid response format', 'warning');
+            }
+            
+            resultBody.innerHTML = `<pre style="color: #fbbf24;">${escapeHtml(displayText)}</pre>`;
+        }
+        
         resultTime.textContent = `${duration}ms`;
         resultSize.textContent = `${(size / 1024).toFixed(1)}KB`;
         
-        // Update status
-        if (response.ok && data.ok !== false) {
-            resultStatus.className = 'result-status success';
-            resultStatus.innerHTML = '<i class="fas fa-circle"></i> Success';
-            showToast('Request successful!', 'success');
-        } else {
-            resultStatus.className = 'result-status error';
-            resultStatus.innerHTML = '<i class="fas fa-circle"></i> Error';
-            showToast(`Error: ${data.error || response.status}`, 'error');
-        }
     } catch (error) {
+        // Error network atau lainnya
         resultBody.innerHTML = `
-            <pre style="color: #f87171;">Error: ${error.message}</pre>
+            <pre style="color: #f87171;">
+❌ Connection Error
+
+${error.message}
+
+Possible causes:
+• Server is not running
+• Network connection issue
+• CORS policy blocking the request
+• Invalid URL: ${url}
+            </pre>
         `;
         resultStatus.className = 'result-status error';
         resultStatus.innerHTML = '<i class="fas fa-circle"></i> Connection Error';
         showToast('Failed to connect to API', 'error');
+        
     } finally {
         testBtn.disabled = false;
         testBtn.innerHTML = '<i class="fas fa-play"></i> Test';
     }
 }
 
-// Syntax highlighting for JSON
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+// Escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Syntax highlighting untuk JSON
 function syntaxHighlight(json) {
     json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
