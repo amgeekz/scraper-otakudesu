@@ -1,20 +1,6 @@
 const scraperService = require('../services/scraperService');
 
 class AnimeController {
-  /**
-   * @swagger
-   * /api/anime/latest:
-   *   get:
-   *     summary: Get latest episodes
-   *     tags: [Anime]
-   *     responses:
-   *       200:
-   *         description: List of latest episodes
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/Response'
-   */
   async getLatestEpisodes(req, res) {
     try {
       const episodes = await scraperService.getLatestEpisodes();
@@ -23,29 +9,14 @@ class AnimeController {
         data: episodes
       });
     } catch (error) {
+      console.error('Error in getLatestEpisodes:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Failed to fetch latest episodes'
       });
     }
   }
 
-  /**
-   * @swagger
-   * /api/anime/ongoing:
-   *   get:
-   *     summary: Get ongoing anime
-   *     tags: [Anime]
-   *     parameters:
-   *       - in: query
-   *         name: page
-   *         schema:
-   *           type: integer
-   *         description: Page number
-   *     responses:
-   *       200:
-   *         description: List of ongoing anime
-   */
   async getOngoingAnime(req, res) {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -55,29 +26,14 @@ class AnimeController {
         data
       });
     } catch (error) {
+      console.error('Error in getOngoingAnime:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Failed to fetch ongoing anime'
       });
     }
   }
 
-  /**
-   * @swagger
-   * /api/anime/complete:
-   *   get:
-   *     summary: Get complete anime
-   *     tags: [Anime]
-   *     parameters:
-   *       - in: query
-   *         name: page
-   *         schema:
-   *           type: integer
-   *         description: Page number
-   *     responses:
-   *       200:
-   *         description: List of complete anime
-   */
   async getCompleteAnime(req, res) {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -87,30 +43,14 @@ class AnimeController {
         data
       });
     } catch (error) {
+      console.error('Error in getCompleteAnime:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Failed to fetch complete anime'
       });
     }
   }
 
-  /**
-   * @swagger
-   * /api/anime/search:
-   *   get:
-   *     summary: Search anime
-   *     tags: [Search]
-   *     parameters:
-   *       - in: query
-   *         name: query
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: Search keyword
-   *     responses:
-   *       200:
-   *         description: Search results
-   */
   async searchAnime(req, res) {
     try {
       const { query } = req.query;
@@ -126,30 +66,14 @@ class AnimeController {
         data: results
       });
     } catch (error) {
+      console.error('Error in searchAnime:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Failed to search anime'
       });
     }
   }
 
-  /**
-   * @swagger
-   * /api/anime/anime/detail:
-   *   get:
-   *     summary: Get anime details
-   *     tags: [Anime]
-   *     parameters:
-   *       - in: query
-   *         name: url
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: Anime detail URL
-   *     responses:
-   *       200:
-   *         description: Anime details
-   */
   async getAnimeDetail(req, res) {
     try {
       const { url } = req.query;
@@ -165,30 +89,14 @@ class AnimeController {
         data
       });
     } catch (error) {
+      console.error('Error in getAnimeDetail:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Failed to fetch anime details'
       });
     }
   }
 
-  /**
-   * @swagger
-   * /api/anime/episode/detail:
-   *   get:
-   *     summary: Get episode details
-   *     tags: [Episodes]
-   *     parameters:
-   *       - in: query
-   *         name: url
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: Episode URL
-   *     responses:
-   *       200:
-   *         description: Episode details with streaming links
-   */
   async getEpisodeDetail(req, res) {
     try {
       const { url } = req.query;
@@ -204,23 +112,14 @@ class AnimeController {
         data
       });
     } catch (error) {
+      console.error('Error in getEpisodeDetail:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Failed to fetch episode details'
       });
     }
   }
 
-  /**
-   * @swagger
-   * /api/anime/genres:
-   *   get:
-   *     summary: Get all genres
-   *     tags: [Genre]
-   *     responses:
-   *       200:
-   *         description: List of genres
-   */
   async getGenres(req, res) {
     try {
       const genres = await scraperService.getGenres();
@@ -229,35 +128,14 @@ class AnimeController {
         data: genres
       });
     } catch (error) {
+      console.error('Error in getGenres:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Failed to fetch genres'
       });
     }
   }
 
-  /**
-   * @swagger
-   * /api/anime/genre/{genre}:
-   *   get:
-   *     summary: Get anime by genre
-   *     tags: [Genre]
-   *     parameters:
-   *       - in: path
-   *         name: genre
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: Genre name
-   *       - in: query
-   *         name: page
-   *         schema:
-   *           type: integer
-   *         description: Page number
-   *     responses:
-   *       200:
-   *         description: Anime list by genre
-   */
   async getAnimeByGenre(req, res) {
     try {
       const { genre } = req.params;
@@ -268,23 +146,14 @@ class AnimeController {
         data
       });
     } catch (error) {
+      console.error('Error in getAnimeByGenre:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Failed to fetch anime by genre'
       });
     }
   }
 
-  /**
-   * @swagger
-   * /api/anime/schedule:
-   *   get:
-   *     summary: Get release schedule
-   *     tags: [Anime]
-   *     responses:
-   *       200:
-   *         description: Weekly release schedule
-   */
   async getSchedule(req, res) {
     try {
       const schedule = await scraperService.getSchedule();
@@ -293,9 +162,10 @@ class AnimeController {
         data: schedule
       });
     } catch (error) {
+      console.error('Error in getSchedule:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Failed to fetch schedule'
       });
     }
   }
