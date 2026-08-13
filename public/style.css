@@ -1368,3 +1368,29 @@ h1 {
         background: #4b5563;
     }
 }
+
+.footer-stats {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+}
+
+.footer-stats span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.footer-stats i {
+    font-size: 11px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .footer-stats {
+        color: #6b7280;
+    }
+}

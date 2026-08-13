@@ -7,6 +7,8 @@ const queryGroup = document.getElementById('query-group');
 const queryInput = document.getElementById('query-input');
 const slugGroup = document.getElementById('slug-group');
 const slugInput = document.getElementById('slug-input');
+const dayGroup = document.getElementById('day-group');
+const dayInput = document.getElementById('day-input');
 const pageGroup = document.getElementById('page-group');
 const pageInput = document.getElementById('page-input');
 const testBtn = document.getElementById('test-btn');
@@ -22,19 +24,20 @@ const endpointsList = document.getElementById('endpoints-list');
 
 // Endpoint configs
 const endpointConfigs = {
-    '/': { hasQuery: false, hasSlug: false, hasPage: false },
-    '/health': { hasQuery: false, hasSlug: false, hasPage: false },
-    '/api/latest': { hasQuery: false, hasSlug: false, hasPage: false },
-    '/api/ongoing': { hasQuery: false, hasSlug: false, hasPage: true },
-    '/api/completed': { hasQuery: false, hasSlug: false, hasPage: true },
-    '/api/search': { hasQuery: true, hasSlug: false, hasPage: false },
-    '/api/anime-list': { hasQuery: false, hasSlug: false, hasPage: false },
-    '/api/genres': { hasQuery: false, hasSlug: false, hasPage: false },
-    '/api/schedule': { hasQuery: false, hasSlug: false, hasPage: false },
-    '/api/anime': { hasQuery: false, hasSlug: true, hasPage: false },
-    '/api/episode': { hasQuery: false, hasSlug: true, hasPage: false },
-    '/api/batch': { hasQuery: false, hasSlug: true, hasPage: false },
-    '/api/complete-downloads': { hasQuery: false, hasSlug: true, hasPage: false },
+    '/': { hasQuery: false, hasSlug: false, hasDay: false, hasPage: false },
+    '/health': { hasQuery: false, hasSlug: false, hasDay: false, hasPage: false },
+    '/api/latest': { hasQuery: false, hasSlug: false, hasDay: false, hasPage: false },
+    '/api/ongoing': { hasQuery: false, hasSlug: false, hasDay: false, hasPage: true },
+    '/api/completed': { hasQuery: false, hasSlug: false, hasDay: false, hasPage: true },
+    '/api/search': { hasQuery: true, hasSlug: false, hasDay: false, hasPage: false },
+    '/api/anime-list': { hasQuery: false, hasSlug: false, hasDay: false, hasPage: false },
+    '/api/genres': { hasQuery: false, hasSlug: false, hasDay: false, hasPage: false },
+    '/api/schedule': { hasQuery: false, hasSlug: false, hasDay: false, hasPage: false },
+    '/api/anime': { hasQuery: false, hasSlug: true, hasDay: false, hasPage: false },
+    '/api/episode': { hasQuery: false, hasSlug: true, hasDay: false, hasPage: false },
+    '/api/batch': { hasQuery: false, hasSlug: true, hasDay: false, hasPage: false },
+    '/api/complete-downloads': { hasQuery: false, hasSlug: true, hasDay: false, hasPage: false },
+    '/api/ongoing-by-day': { hasQuery: false, hasSlug: false, hasDay: true, hasPage: false },
 };
 
 // All endpoints data
@@ -52,6 +55,7 @@ const allEndpoints = [
     { group: 'Detail', method: 'GET', path: '/api/episode/:slug', desc: 'Episode detail with streams & downloads' },
     { group: 'Detail', method: 'GET', path: '/api/batch/:slug', desc: 'Batch download detail' },
     { group: 'Detail', method: 'GET', path: '/api/complete-downloads/:slug', desc: 'Complete downloads all episodes' },
+    { group: 'Advanced', method: 'GET', path: '/api/ongoing-by-day/:day', desc: 'Ongoing anime by day (senin-sabtu)' },
 ];
 
 // Render endpoints
@@ -68,7 +72,8 @@ function renderEndpoints() {
             'Service': 'heartbeat',
             'Main': 'database',
             'List': 'list',
-            'Detail': 'info-circle'
+            'Detail': 'info-circle',
+            'Advanced': 'star'
         };
         html += `
             <div class="endpoint-group">
@@ -116,10 +121,11 @@ getClientIP();
 // Update input visibility based on endpoint
 endpointSelect.addEventListener('change', function() {
     const value = this.value;
-    const config = endpointConfigs[value] || { hasQuery: false, hasSlug: false, hasPage: false };
+    const config = endpointConfigs[value] || { hasQuery: false, hasSlug: false, hasDay: false, hasPage: false };
     
     queryGroup.style.display = config.hasQuery ? 'flex' : 'none';
     slugGroup.style.display = config.hasSlug ? 'flex' : 'none';
+    dayGroup.style.display = config.hasDay ? 'flex' : 'none';
     pageGroup.style.display = config.hasPage ? 'flex' : 'none';
 });
 
@@ -128,6 +134,7 @@ document.querySelectorAll('.quick-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         const endpoint = this.dataset.endpoint;
         const query = this.dataset.query || '';
+        const day = this.dataset.day || '';
         
         // Set select value
         const selectOption = endpointSelect.querySelector(`option[value="${endpoint}"]`);
@@ -139,6 +146,11 @@ document.querySelectorAll('.quick-btn').forEach(btn => {
         // Set query if exists
         if (query && queryInput) {
             queryInput.value = query;
+        }
+        
+        // Set day if exists
+        if (day && dayInput) {
+            dayInput.value = day;
         }
         
         // Auto click test
@@ -170,6 +182,13 @@ testBtn.addEventListener('click', async function() {
             return;
         }
         url = `${endpoint}/${encodeURIComponent(slug)}`;
+    } else if (endpoint === '/api/ongoing-by-day') {
+        const day = dayInput.value.trim();
+        if (!day) {
+            showToast('Please select a day', 'warning');
+            return;
+        }
+        url = `${endpoint}/${encodeURIComponent(day)}`;
     }
     
     await testApi(url);
@@ -219,7 +238,7 @@ expandResultBtn.addEventListener('click', function() {
 });
 
 // ========================================
-// TEST API FUNCTION - DENGAN ERROR HANDLING LEBIH BAIK
+// TEST API FUNCTION
 // ========================================
 async function testApi(url) {
     const startTime = Date.now();
@@ -259,11 +278,9 @@ async function testApi(url) {
         
         // Tampilkan response
         if (isJson && data) {
-            // Format JSON dengan syntax highlighting
             const formatted = syntaxHighlight(JSON.stringify(data, null, 2));
             resultBody.innerHTML = `<pre>${formatted}</pre>`;
             
-            // Update status
             if (response.ok && data.ok !== false) {
                 resultStatus.className = 'result-status success';
                 resultStatus.innerHTML = '<i class="fas fa-circle"></i> Success';
@@ -274,7 +291,6 @@ async function testApi(url) {
                 showToast(`Error: ${data.error || data.message || response.status}`, 'error');
             }
         } else {
-            // Bukan JSON - tampilkan sebagai text/HTML
             const isHtml = rawText.includes('<html') || rawText.includes('<!DOCTYPE');
             const isError = rawText.includes('403') || rawText.includes('Forbidden') || rawText.includes('blocked');
             
@@ -303,7 +319,6 @@ async function testApi(url) {
         resultSize.textContent = `${(size / 1024).toFixed(1)}KB`;
         
     } catch (error) {
-        // Error network atau lainnya
         resultBody.innerHTML = `
             <pre style="color: #f87171;">
 ❌ Connection Error
@@ -331,14 +346,12 @@ Possible causes:
 // HELPER FUNCTIONS
 // ========================================
 
-// Escape HTML
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// Syntax highlighting untuk JSON
 function syntaxHighlight(json) {
     json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
@@ -360,7 +373,6 @@ function syntaxHighlight(json) {
     });
 }
 
-// Copy to clipboard
 function copyToClipboard(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
@@ -389,7 +401,6 @@ function fallbackCopy(text) {
     document.body.removeChild(textarea);
 }
 
-// Toast notification
 function showToast(message, type = 'info') {
     const existing = document.querySelector('.toast-notification');
     if (existing) existing.remove();
@@ -435,4 +446,5 @@ document.addEventListener('keydown', (e) => {
 console.log('%c🎌 Otakudesu REST API v2.0', 'font-size: 24px; font-weight: bold; color: #667eea;');
 console.log('%c📚 Docs: /docs', 'font-size: 14px; color: #6b7280;');
 console.log('%c🔒 Trust Proxy: Enabled', 'font-size: 14px; color: #10b981;');
+console.log('%c🔄 Fallback: 5 domains', 'font-size: 14px; color: #f59e0b;');
 console.log('%c💡 Tip: Ctrl+Enter to test API', 'font-size: 14px; color: #f59e0b;');

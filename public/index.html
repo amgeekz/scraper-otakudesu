@@ -30,9 +30,10 @@
             </div>
         </header>
 
+        <!-- Features -->
         <section class="features">
             <div class="feature">
-                <i class="fas fa-clock icon"></i>
+                <i class="fas fa-home icon"></i>
                 <h3>Latest</h3>
             </div>
             <div class="feature">
@@ -62,6 +63,10 @@
             <div class="feature">
                 <i class="fas fa-boxes icon"></i>
                 <h3>Complete DL</h3>
+            </div>
+            <div class="feature">
+                <i class="fas fa-calendar-day icon"></i>
+                <h3>By Day</h3>
             </div>
         </section>
 
@@ -100,6 +105,9 @@
                             <option value="/api/batch">GET /api/batch/:slug</option>
                             <option value="/api/complete-downloads">GET /api/complete-downloads/:slug</option>
                         </optgroup>
+                        <optgroup label="Advanced">
+                            <option value="/api/ongoing-by-day">GET /api/ongoing-by-day/:day</option>
+                        </optgroup>
                     </select>
                 </div>
 
@@ -111,6 +119,19 @@
                 <div class="test-input-group" id="slug-group" style="display:none;">
                     <label for="slug-input"><i class="fas fa-hashtag"></i> Slug</label>
                     <input type="text" id="slug-input" placeholder="e.g. naruto-shippuden" value="naruto-shippuden">
+                </div>
+
+                <div class="test-input-group" id="day-group" style="display:none;">
+                    <label for="day-input"><i class="fas fa-calendar-day"></i> Day</label>
+                    <select id="day-input">
+                        <option value="senin">Senin</option>
+                        <option value="selasa">Selasa</option>
+                        <option value="rabu">Rabu</option>
+                        <option value="kamis">Kamis</option>
+                        <option value="jumat">Jumat</option>
+                        <option value="sabtu">Sabtu</option>
+                        <option value="minggu">Minggu</option>
+                    </select>
                 </div>
 
                 <div class="test-input-group" id="page-group" style="display:none;">
@@ -135,6 +156,7 @@
                 <button class="quick-btn" data-endpoint="/api/search" data-query="naruto">Search</button>
                 <button class="quick-btn" data-endpoint="/api/genres">Genres</button>
                 <button class="quick-btn" data-endpoint="/api/schedule">Schedule</button>
+                <button class="quick-btn" data-endpoint="/api/ongoing-by-day" data-day="senin">Senin</button>
             </div>
 
             <!-- Result -->
@@ -198,7 +220,8 @@
             <span style="font-size: 12px; color: #d1d5db;">
                 <i class="fas fa-shield-alt"></i> Rate: 60 req/min &bull;
                 <i class="fas fa-globe"></i> CORS enabled &bull;
-                <i class="fas fa-server"></i> Trust proxy: enabled
+                <i class="fas fa-server"></i> Trust proxy: enabled &bull;
+                <i class="fas fa-sync"></i> Fallback: 5 domains
             </span>
         </footer>
     </div>
