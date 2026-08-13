@@ -43,6 +43,13 @@ class AnimeController {
   async getLatest(req, res) {
     try {
       const data = await scraperService.getLatest();
+      // Jika data memiliki error property
+      if (data && data.error) {
+        return res.status(500).json({ 
+          ok: false, 
+          error: data.message || 'Failed to fetch latest anime' 
+        });
+      }
       res.json({ ok: true, data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
@@ -60,6 +67,9 @@ class AnimeController {
         });
       }
       const data = await scraperService.search(q);
+      if (data && data.error) {
+        return res.status(500).json({ ok: false, error: data.message });
+      }
       res.json({ ok: true, data, query: q });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
@@ -73,8 +83,11 @@ class AnimeController {
       if (!validatePage(page)) {
         return res.status(400).json({ ok: false, error: 'Invalid page number' });
       }
-      const { data, page: currentPage } = await scraperService.getOngoing(page);
-      res.json({ ok: true, data, page: currentPage });
+      const result = await scraperService.getOngoing(page);
+      if (result && result.error) {
+        return res.status(500).json({ ok: false, error: result.message });
+      }
+      res.json({ ok: true, data: result.data, page: result.page });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
     }
@@ -87,8 +100,11 @@ class AnimeController {
       if (!validatePage(page)) {
         return res.status(400).json({ ok: false, error: 'Invalid page number' });
       }
-      const { data, page: currentPage } = await scraperService.getCompleted(page);
-      res.json({ ok: true, data, page: currentPage });
+      const result = await scraperService.getCompleted(page);
+      if (result && result.error) {
+        return res.status(500).json({ ok: false, error: result.message });
+      }
+      res.json({ ok: true, data: result.data, page: result.page });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
     }
@@ -98,6 +114,9 @@ class AnimeController {
   async getAnimeList(req, res) {
     try {
       const data = await scraperService.getAnimeList();
+      if (data && data.error) {
+        return res.status(500).json({ ok: false, error: data.message });
+      }
       res.json({ ok: true, data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
@@ -108,6 +127,9 @@ class AnimeController {
   async getGenres(req, res) {
     try {
       const data = await scraperService.getGenres();
+      if (data && data.error) {
+        return res.status(500).json({ ok: false, error: data.message });
+      }
       res.json({ ok: true, data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
@@ -118,6 +140,9 @@ class AnimeController {
   async getSchedule(req, res) {
     try {
       const data = await scraperService.getSchedule();
+      if (data && data.error) {
+        return res.status(500).json({ ok: false, error: data.message });
+      }
       res.json({ ok: true, data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
@@ -132,6 +157,9 @@ class AnimeController {
         return res.status(400).json({ ok: false, error: 'Invalid slug' });
       }
       const data = await scraperService.getAnimeDetail(slug);
+      if (data && data.error) {
+        return res.status(500).json({ ok: false, error: data.message });
+      }
       res.json({ ok: true, data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
@@ -146,6 +174,9 @@ class AnimeController {
         return res.status(400).json({ ok: false, error: 'Invalid slug' });
       }
       const data = await scraperService.getEpisodeDetail(slug);
+      if (data && data.error) {
+        return res.status(500).json({ ok: false, error: data.message });
+      }
       res.json({ ok: true, data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
@@ -160,6 +191,9 @@ class AnimeController {
         return res.status(400).json({ ok: false, error: 'Invalid slug' });
       }
       const data = await scraperService.getBatchDetail(slug);
+      if (data && data.error) {
+        return res.status(500).json({ ok: false, error: data.message });
+      }
       res.json({ ok: true, data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
@@ -174,6 +208,9 @@ class AnimeController {
         return res.status(400).json({ ok: false, error: 'Invalid slug' });
       }
       const data = await scraperService.getCompleteDownloads(slug);
+      if (data && data.error) {
+        return res.status(500).json({ ok: false, error: data.message });
+      }
       res.json({ ok: true, data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
