@@ -1,12 +1,12 @@
 {
   "name": "otakudesu-rest-api",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "REST API for scraping anime data from Otakudesu.blog",
   "main": "api/index.js",
   "scripts": {
-    "start": "node api/index.js",
-    "dev": "nodemon api/index.js",
-    "vercel-build": "npm install"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "vercel-build": "npm install --production"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -15,6 +15,8 @@
     "dotenv": "^16.3.1",
     "cors": "^2.8.5",
     "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "lru-cache": "^10.1.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0"
   },
